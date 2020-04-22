@@ -2,7 +2,7 @@
 listen_address = "localhost:9000"
 
 # monitoring address
-#monitoring_address = "localhost:2003"
+#mon_address = "localhost:2003"
 
 # DB server address
 db_address = "localhost:6379"
