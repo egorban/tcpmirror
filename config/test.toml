@@ -1,0 +1,26 @@
+# listen address
+listen_address = "localhost:9000"
+
+# DB server address
+db_address = "localhost:6379"
+
+# list of data consumers
+consumers_list = ["ndtp_server", "rnis"]
+
+# listen protocol
+listen_protocol = "NDTP"
+
+#log level
+log_level = "trace"
+
+[ndtp_server]
+id = 1
+address = "localhost:9001"
+protocol = "NDTP"
+master = true
+
+[rnis]
+id = 2
+address = "localhost:9002"
+protocol = "EGTS"
+master = false
