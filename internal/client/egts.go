@@ -156,7 +156,7 @@ func (c *Egts) send(buf []byte) {
 		if err != nil {
 			c.conStatus()
 		}
-		monitoring.SendBytes("vis", n)
+		monitoring.SendBytes("vis", "egts", n)
 	}
 }
 
