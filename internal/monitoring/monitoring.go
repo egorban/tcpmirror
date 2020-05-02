@@ -1,43 +1,61 @@
 package monitoring
 
 import (
-	"github.com/ashirko/go-metrics"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
+	"bufio"
+	"fmt"
+	"net"
+	"strconv"
+
+	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 var (
-	countClientNDTP     metrics.Counter
-	countToServerNDTP   metrics.Counter
-	countFromServerNDTP metrics.Counter
-	countServerEGTS     metrics.Counter
-	memFree             metrics.Gauge
-	memUsed             metrics.Gauge
-	cpu15               metrics.GaugeFloat64
-	cpu1                metrics.GaugeFloat64
-	usedPercent         metrics.GaugeFloat64
-	EnableMetrics       bool
+	addr     *net.UDPAddr
+	host     string
+	instance string
 )
 
-func periodicSysMon() {
-	for {
-		v, err := mem.VirtualMemory()
-		if err != nil {
-			logrus.Errorf("periodic mem mon error: %s", err)
-		} else {
-			memFree.Update(int64(v.Free))
-			memUsed.Update(int64(v.Used))
-			usedPercent.Update(v.UsedPercent)
-		}
-		c, err := load.Avg()
-		if err != nil {
-			logrus.Errorf("periodic cpu mon error: %s", err)
-		} else {
-			cpu1.Update(c.Load1)
-			cpu15.Update(c.Load15)
-		}
-		time.Sleep(10 * time.Second)
+func Init(address string) (enable bool, err error) {
+	if address == "" {
+		logrus.Println("start without sending metrics to influx")
+		return
 	}
+	addr, err = net.ResolveUDPAddr("udp", address)
+	if err != nil {
+		logrus.Errorf("error while connecting to influx: %s\n", err)
+		return
+	}
+	host = "10_1_116_55"           //TODO: динамическое вычисление
+	instance = util.InstancePrefix //TODO: динамическое вычисление
+	logrus.Infof("start sending metrics to influx to %+s:%+v, prefix: %+s",
+		addr.IP, addr.Port, util.InstancePrefix)
+	return true, nil
+}
+
+//формирование строки для отправки
+func SendBytes(table string, system string, count int) { // int?
+	record := table + ",host=" + host + ",instance=" + instance + ",system=" + system +
+		" sentBytes=" + strconv.Itoa(count)
+	logrus.Println("SendBytes %+v", record)
+	sendToInflux(record)
+}
+
+// отправка строки по udp
+func sendToInflux(record string) error {
+	conn, err := net.DialUDP("udp", nil, addr)
+	if nil != err {
+		return err
+	}
+	defer conn.Close()
+	w := bufio.NewWriter(conn)
+	_, err = fmt.Fprintf(w, record)
+	if nil != err {
+		return err
+	}
+	err = w.Flush()
+	if nil != err {
+		return err
+	}
+	return nil
 }

@@ -2,13 +2,15 @@ package client
 
 import (
 	"fmt"
-	"github.com/ashirko/navprot/pkg/egts"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/egts"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 // EgtsChanSize defines size of EGTS client input chanel buffer
@@ -150,10 +152,11 @@ func (c *Egts) send(buf []byte) {
 		if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 			c.logger.Warningf("can't SetWriteDeadline: %s", err)
 		}
-		_, err := c.conn.Write(buf)
+		n, err := c.conn.Write(buf)
 		if err != nil {
 			c.conStatus()
 		}
+		monitoring.SendBytes("vis", n)
 	}
 }
 
