@@ -2,13 +2,15 @@ package client
 
 import (
 	"errors"
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
@@ -41,6 +43,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.ndtpSession = new(ndtpSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_client", "vis": sys.ID})
 	c.Options = options
@@ -315,18 +318,19 @@ func reverseSlice(res [][]byte) [][]byte {
 func (c *Ndtp) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return send(c.conn, packet)
+		return send(c.conn, c.name, packet)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
 }
 
-func send(conn net.Conn, packet []byte) error {
+func send(conn net.Conn, name string, packet []byte) error {
 	err := conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err != nil {
 		return err
 	}
-	_, err = conn.Write(packet)
+	n, err := conn.Write(packet)
+	monitoring.SendMetric(name, monitoring.SentBytes, n)
 	return err
 }
 

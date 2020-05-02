@@ -10,10 +10,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	visTable  = "vis"
+	attTable  = "source"
+	SentBytes = "sentBytes"
+	RcvdBytes = "rcvdBytes"
+)
+
 var (
-	addr     *net.UDPAddr
-	host     string
-	instance string
+	monAddr      *net.UDPAddr
+	defaultPoint point
 )
 
 func Init(address string) (enable bool, err error) {
@@ -21,29 +27,43 @@ func Init(address string) (enable bool, err error) {
 		logrus.Println("start without sending metrics to influx")
 		return
 	}
-	addr, err = net.ResolveUDPAddr("udp", address)
+	monAddr, err = net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		logrus.Errorf("error while connecting to influx: %s\n", err)
 		return
 	}
-	host = "10_1_116_55"           //TODO: динамическое вычисление
-	instance = util.InstancePrefix //TODO: динамическое вычисление
-	logrus.Infof("start sending metrics to influx to %+s:%+v, prefix: %+s",
-		addr.IP, addr.Port, util.InstancePrefix)
+	host, err := getHost()
+	if err != nil {
+		logrus.Errorf("error while getting host IP: %s\n", err)
+		return
+	}
+	defaultPoint = point{
+		tags: map[string]string{
+			"host":     host,
+			"instance": util.Instance,
+		},
+		values: make(map[string]string),
+	}
+	logrus.Infof("start sending metrics to influx to %+s:%+v, instance: %+s",
+		monAddr.IP, monAddr.Port, util.Instance)
 	return true, nil
 }
 
-//формирование строки для отправки
-func SendBytes(table string, system string, count int) { // int?
-	record := table + ",host=" + host + ",instance=" + instance + ",system=" + system +
-		" sentBytes=" + strconv.Itoa(count)
-	logrus.Println("SendBytes %+v", record)
-	sendToInflux(record)
+func SendMetric(name string, metric string, count int) {
+	newPoint := defaultPoint
+	if "" != name {
+		newPoint.tags["system"] = name
+		newPoint.table = visTable
+	} else {
+		newPoint.table = attTable
+	}
+	newPoint.values[metric] = strconv.Itoa(count)
+	record := newPoint.toRecord()
+	send(record)
 }
 
-// отправка строки по udp
-func sendToInflux(record string) error {
-	conn, err := net.DialUDP("udp", nil, addr)
+func send(record string) error {
+	conn, err := net.DialUDP("udp", nil, monAddr)
 	if nil != err {
 		return err
 	}
@@ -58,4 +78,8 @@ func sendToInflux(record string) error {
 		return err
 	}
 	return nil
+}
+
+func getHost() (string, error) {
+	return "10_1_116_55", nil //TODO: динамическое вычисление
 }

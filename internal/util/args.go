@@ -2,10 +2,12 @@ package util
 
 import (
 	"flag"
+	"path/filepath"
+	"strconv"
+	"strings"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 // System contains information about system which consumes data
 type System struct {
 	ID       byte
+	Name     string
 	Address  string
 	Protocol string
 	IsMaster bool
@@ -66,7 +69,7 @@ var (
 	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	// EgtsName is prefix for storing data in DB for different consumer systems
 	EgtsName string
-	InstancePrefix string
+	Instance string
 )
 
 // ParseArgs parses configuration file
@@ -82,8 +85,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	if err = viper.ReadInConfig(); err != nil {
 		return
 	}
-	confName := strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
-	InstancePrefix = "tcpmirror."+confName + "_instance.metrics"
+	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	args.DB = viper.GetString(db)
 	args.Listen = viper.GetString(listen)
 	args.Protocol = viper.GetString(protocol)
@@ -119,7 +121,7 @@ func parseConfig(conf string) (args *Args, err error) {
 		args.TimeoutReconnect = 10
 	}
 	args.TestMode = viper.GetBool(testMode)
-	EgtsName = egtsKey + ":" + confName
+	EgtsName = egtsKey + ":" + Instance
 	return
 }
 
@@ -135,9 +137,15 @@ func parseSystems(list []string) []System {
 func parseSystem(key string) System {
 	data := viper.GetStringMap(key)
 	sys := System{}
-	sys.ID = byte(data["id"].(int64))
+	id := data["id"].(int64)
+	sys.ID = byte(id)
 	sys.Address = data["address"].(string)
 	sys.Protocol = data["protocol"].(string)
 	sys.IsMaster = data["master"].(bool)
+	sys.Name = formSystemName(id, key, sys.Protocol)
 	return sys
+}
+
+func formSystemName(id int64, name string, prorocol string) string {
+	return strconv.FormatInt(id, 10) + "_" + strings.ToLower(name) + "_" + strings.ToLower(prorocol)
 }

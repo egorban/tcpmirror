@@ -1,11 +1,12 @@
 package client
 
 import (
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -37,6 +38,7 @@ type connection struct {
 
 type info struct {
 	id      byte
+	name    string
 	address string
 	logger  *logrus.Entry
 	*util.Options

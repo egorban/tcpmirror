@@ -2,12 +2,13 @@ package client
 
 import (
 	"errors"
+	"net"
+	"time"
+
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
-	"net"
-	"time"
 )
 
 // NdtpMasterChanSize defines size of NdtpMaster client input chanel buffer
@@ -35,6 +36,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.ndtpSession = new(ndtpSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_master_client", "vis": sys.ID})
 	c.Options = options
@@ -229,7 +231,7 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 			if err != nil {
 				c.logger.Warningf("can't handle result: %v; %v", err, packet)
 			}
-		} else if service == 0 && packetType == 0 {
+		} else if service == 0 && packetType == 0 { //TODO заменить service на константу
 			if c.auth {
 				c.send2Channel(c.Output, packet)
 			} else {
@@ -320,7 +322,7 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return send(c.conn, packet)
+		return send(c.conn, c.name, packet)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
