@@ -9,7 +9,7 @@ type point struct {
 }
 
 func (p point) toRecord() string {
-	return p.table + " " + transformMap(p.tags) + " " + transformMap(p.values)
+	return p.table + "," + transformMap(p.tags) + " " + transformMap(p.values)
 }
 
 func transformMap(m map[string]string) (str string) {

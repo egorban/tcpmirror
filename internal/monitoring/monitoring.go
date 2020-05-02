@@ -63,6 +63,7 @@ func SendMetric(name string, metric string, count int) {
 }
 
 func send(record string) error {
+	logrus.Infof("send influx %s", record)
 	conn, err := net.DialUDP("udp", nil, monAddr)
 	if nil != err {
 		return err
