@@ -11,10 +11,12 @@ import (
 )
 
 const (
-	visTable  = "vis"
-	attTable  = "source"
-	SentBytes = "sentBytes"
-	RcvdBytes = "rcvdBytes"
+	visTable    = "vis"
+	attTable    = "source"
+	SentBytes   = "sentBytes"
+	RcvdBytes   = "rcvdBytes"
+	SentPackets = "sentPackets"
+	RcvdPackets = "rcvdPackets"
 )
 
 var (
@@ -49,10 +51,10 @@ func Init(address string) (enable bool, err error) {
 	return true, nil
 }
 
-func SendMetric(name string, metric string, count int) {
+func SendMetric(systemName string, metric string, count int) {
 	newPoint := defaultPoint
-	if "" != name {
-		newPoint.tags["system"] = name
+	if "" != systemName {
+		newPoint.tags["system"] = systemName
 		newPoint.table = visTable
 	} else {
 		newPoint.table = attTable

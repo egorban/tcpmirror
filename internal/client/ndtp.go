@@ -3,24 +3,16 @@ package client
 import (
 	"errors"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
 const NdtpChanSize = 200
-
-type ndtpSession struct {
-	nplID uint16
-	nphID uint32
-	mu    sync.Mutex
-}
 
 // Ndtp describes Ndtp client
 type Ndtp struct {
@@ -307,14 +299,6 @@ func (c *Ndtp) resend(messages [][]byte) {
 	}
 }
 
-func reverseSlice(res [][]byte) [][]byte {
-	for i := len(res)/2 - 1; i >= 0; i-- {
-		opp := len(res) - 1 - i
-		res[i], res[opp] = res[opp], res[i]
-	}
-	return res
-}
-
 func (c *Ndtp) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
@@ -322,16 +306,6 @@ func (c *Ndtp) send2Server(packet []byte) error {
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
-}
-
-func send(conn net.Conn, name string, packet []byte) error {
-	err := conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	if err != nil {
-		return err
-	}
-	n, err := conn.Write(packet)
-	monitoring.SendMetric(name, monitoring.SentBytes, n)
-	return err
 }
 
 func (c *Ndtp) getNphID() (uint32, error) {
