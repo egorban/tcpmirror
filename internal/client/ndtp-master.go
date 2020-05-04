@@ -7,6 +7,7 @@ import (
 
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
@@ -101,7 +102,7 @@ func (c *NdtpMaster) authorization() error {
 	if err != nil {
 		return err
 	}
-	_, err = c.processPacket(b[:n])
+	_, _, err = c.processPacket(b[:n])
 	if err != nil {
 		return err
 	}
@@ -204,7 +205,9 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	}
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
-	buf, err = c.processPacket(buf)
+	var count int
+	buf, count, err = c.processPacket(buf)
+	monitoring.SendMetric(c.name, monitoring.RcvdBytes, count)
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
 		if len(buf) > 1024 {
@@ -214,8 +217,9 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	return buf
 }
 
-func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
+func (c *NdtpMaster) processPacket(buf []byte) ([]byte, int, error) {
 	//c.logger.Tracef("start process packet: %d, %d", len(buf), len(rest))
+	count := 0
 	for len(buf) > 0 {
 		c.logger.Tracef("process buff: %v", buf)
 		var service, packetType uint16
@@ -232,6 +236,8 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 				c.logger.Warningf("can't handle result: %v; %v", err, packet)
 			}
 		} else if service == 0 && packetType == 0 { //TODO заменить service на константу
+			count++
+			monitoring.SendMetric(c.name, monitoring.RcvdPackets, 1)
 			if c.auth {
 				c.send2Channel(c.Output, packet)
 			} else {
@@ -240,10 +246,11 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 			}
 			continue
 		} else {
+			count++
 			c.send2Channel(c.Output, packet)
 		}
 	}
-	return buf, nil
+	return buf, count, nil
 }
 
 func (c *NdtpMaster) handleResult(packet []byte) (err error) {

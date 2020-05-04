@@ -3,14 +3,16 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/ashirko/tcpmirror/internal/client"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/ashirko/tcpmirror/internal/client"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 type ndtpServer struct {
@@ -26,7 +28,7 @@ type ndtpServer struct {
 	ndtpClients []client.Client
 	channels    []chan []byte
 	packetNum   uint32
-	confChan	chan *db.ConfMsg
+	confChan    chan *db.ConfMsg
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -98,6 +100,7 @@ func (s *ndtpServer) receiveFromMaster() {
 			return
 		case packet := <-s.masterOut:
 			s.logger.Tracef("received packet from master: %v", packet)
+			monitoring.SendMetric("", monitoring.SentPackets, 1)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
@@ -125,13 +128,17 @@ func (s *ndtpServer) serverLoop() {
 			close(s.exitChan)
 			return
 		}
+		monitoring.SendMetric("", monitoring.RcvdBytes, n)
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
-		buf = s.processBuf(buf)
+		var count int
+		buf, count = s.processBuf(buf)
+		monitoring.SendMetric("", monitoring.RcvdPackets, count)
 	}
 }
 
-func (s *ndtpServer) processBuf(buf []byte) []byte {
+func (s *ndtpServer) processBuf(buf []byte) ([]byte, int) {
+	count := 0
 	for len(buf) > 0 {
 		packet, rest, service, _, nphID, err := ndtp.SimpleParse(buf)
 		s.logger.Tracef("service: %d, nphID: %d, packet: %v, err: %v", service, nphID, packet, err)
@@ -139,18 +146,19 @@ func (s *ndtpServer) processBuf(buf []byte) []byte {
 		if err != nil {
 			if len(rest) > defaultBufferSize {
 				s.logger.Warningf("drop buffer: %s", err)
-				return []byte(nil)
+				return []byte(nil), count
 			}
-			return rest
+			return rest, count
 		}
 		buf = rest
 		err = s.processPacket(packet, service)
 		if err != nil {
 			s.logger.Warningf("can't process message from client: %s", err)
-			return []byte(nil)
+			return []byte(nil), count
 		}
+		count++
 	}
-	return buf
+	return buf, count
 }
 
 func (s *ndtpServer) processPacket(packet []byte, service uint16) (err error) {
@@ -241,7 +249,9 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = s.conn.Write(packet)
+	if n, err := s.conn.Write(packet); err == nil {
+		monitoring.SendMetric("", monitoring.SentBytes, n)
+	}
 	return
 }
 

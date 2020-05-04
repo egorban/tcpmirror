@@ -17,6 +17,7 @@ const (
 	RcvdBytes   = "rcvdBytes"
 	SentPackets = "sentPackets"
 	RcvdPackets = "rcvdPackets"
+	Connections = "connections"
 )
 
 var (
