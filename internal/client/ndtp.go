@@ -7,6 +7,7 @@ import (
 
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
@@ -69,6 +70,7 @@ func (c *Ndtp) start() {
 	}
 	go c.old()
 	go c.replyHandler()
+	go c.checkQueue()
 	c.clientLoop()
 }
 
@@ -111,6 +113,7 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
+	monitoring.NewConn(c.name)
 	for {
 		if c.open {
 			select {
@@ -271,6 +274,19 @@ func (c *Ndtp) checkOld() {
 	return
 }
 
+func (c *Ndtp) checkQueue() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.exitChan:
+			return
+		case <-ticker.C:
+			monitoring.SendMetric(c.name, monitoring.QueuedPkts, len(c.Input))
+		}
+	}
+}
+
 func (c *Ndtp) resend(messages [][]byte) {
 	messages = reverseSlice(messages)
 	for _, mes := range messages {
@@ -335,6 +351,7 @@ func (c *Ndtp) connStatus() {
 }
 
 func (c *Ndtp) reconnect() {
+	monitoring.CloseConn(c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
@@ -352,6 +369,7 @@ func (c *Ndtp) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
+					monitoring.NewConn(c.name)
 					go c.chanReconStatus()
 					return
 				}

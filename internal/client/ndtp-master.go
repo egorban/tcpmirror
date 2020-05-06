@@ -72,6 +72,7 @@ func (c *NdtpMaster) start() {
 	}
 	go c.old()
 	go c.replyHandler()
+	go c.checkQueue()
 	c.clientLoop()
 }
 
@@ -114,6 +115,7 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
+	monitoring.NewConn(c.name)
 	for {
 		if c.open {
 			select {
@@ -228,7 +230,7 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, int, error) {
 		packet, buf, service, packetType, _, err = ndtp.SimpleParse(buf)
 		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
 		if err != nil {
-			return buf, err
+			return buf, count, err
 		}
 		if service == 1 && packetType == 0 {
 			err = c.handleResult(packet)
@@ -299,6 +301,19 @@ func (c *NdtpMaster) checkOld() {
 	return
 }
 
+func (c *NdtpMaster) checkQueue() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.exitChan:
+			return
+		case <-ticker.C:
+			monitoring.SendMetric(c.name, monitoring.QueuedPkts, len(c.Input))
+		}
+	}
+}
+
 func (c *NdtpMaster) resend(messages [][]byte) {
 	messages = reverseSlice(messages)
 	for _, mes := range messages {
@@ -360,6 +375,7 @@ func (c *NdtpMaster) connStatus() {
 }
 
 func (c *NdtpMaster) reconnect() {
+	monitoring.CloseConn(c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
@@ -377,6 +393,7 @@ func (c *NdtpMaster) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
+					monitoring.NewConn(c.name)
 					go c.chanReconStatus()
 					return
 				}

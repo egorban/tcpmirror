@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
@@ -17,12 +18,15 @@ const (
 	RcvdBytes   = "rcvdBytes"
 	SentPackets = "sentPackets"
 	RcvdPackets = "rcvdPackets"
-	Connections = "connections"
+	Conns       = "connections"
+	QueuedPkts  = "queuedPkts"
 )
 
 var (
 	monAddr      *net.UDPAddr
 	defaultPoint point
+	muConn       sync.Mutex
+	connections  map[string]uint64
 )
 
 func Init(address string) (enable bool, err error) {
@@ -61,6 +65,38 @@ func SendMetric(systemName string, metric string, count int) {
 		newPoint.table = attTable
 	}
 	newPoint.values[metric] = strconv.Itoa(count)
+	record := newPoint.toRecord()
+	send(record)
+}
+
+func NewConn(systemName string) {
+	newPoint := defaultPoint
+	if "" != systemName {
+		newPoint.tags["system"] = systemName
+		newPoint.table = visTable
+	} else {
+		newPoint.table = attTable
+	}
+	muConn.Lock()
+	connections[systemName]++
+	newPoint.values[Conns] = strconv.FormatUint(connections[systemName], 10)
+	muConn.Unlock()
+	record := newPoint.toRecord()
+	send(record)
+}
+
+func CloseConn(systemName string) {
+	newPoint := defaultPoint
+	if "" != systemName {
+		newPoint.tags["system"] = systemName
+		newPoint.table = visTable
+	} else {
+		newPoint.table = attTable
+	}
+	muConn.Lock()
+	connections[systemName]--
+	newPoint.values[Conns] = strconv.FormatUint(connections[systemName], 10)
+	muConn.Unlock()
 	record := newPoint.toRecord()
 	send(record)
 }

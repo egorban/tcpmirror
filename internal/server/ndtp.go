@@ -111,6 +111,7 @@ func (s *ndtpServer) receiveFromMaster() {
 }
 
 func (s *ndtpServer) serverLoop() {
+	monitoring.NewConn("")
 	var buf []byte
 	var b [defaultBufferSize]byte
 	for {
@@ -125,6 +126,7 @@ func (s *ndtpServer) serverLoop() {
 		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
 			s.logger.Info("close ndtpServer: ", err)
+			monitoring.CloseConn("")
 			close(s.exitChan)
 			return
 		}
