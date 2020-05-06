@@ -51,6 +51,7 @@ func Init(address string) (enable bool, err error) {
 		},
 		values: make(map[string]string),
 	}
+	connections = make(map[string]uint64)
 	logrus.Infof("start sending metrics to influx to %+s:%+v, instance: %+s",
 		monAddr.IP, monAddr.Port, util.Instance)
 	return true, nil
@@ -94,7 +95,9 @@ func CloseConn(systemName string) {
 		newPoint.table = attTable
 	}
 	muConn.Lock()
-	connections[systemName]--
+	if connections[systemName] > 0 {
+		connections[systemName]--
+	}
 	newPoint.values[Conns] = strconv.FormatUint(connections[systemName], 10)
 	muConn.Unlock()
 	record := newPoint.toRecord()
