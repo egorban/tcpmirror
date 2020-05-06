@@ -29,6 +29,7 @@ type ndtpServer struct {
 	channels    []chan []byte
 	packetNum   uint32
 	confChan    chan *db.ConfMsg
+	name        string
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -90,6 +91,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		masterOut:   master.OutputChannel(),
 		ndtpClients: append(clients, master),
 		channels:    channels,
+		name:        monitoring.AttMonName,
 	}, nil
 }
 
@@ -100,7 +102,7 @@ func (s *ndtpServer) receiveFromMaster() {
 			return
 		case packet := <-s.masterOut:
 			s.logger.Tracef("received packet from master: %v", packet)
-			monitoring.SendMetric("", monitoring.SentPackets, 1)
+			monitoring.SentPkts(s.name, 1)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
@@ -111,7 +113,7 @@ func (s *ndtpServer) receiveFromMaster() {
 }
 
 func (s *ndtpServer) serverLoop() {
-	monitoring.NewConn("")
+	monitoring.NewConn(s.name)
 	var buf []byte
 	var b [defaultBufferSize]byte
 	for {
@@ -126,16 +128,16 @@ func (s *ndtpServer) serverLoop() {
 		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
 			s.logger.Info("close ndtpServer: ", err)
-			monitoring.CloseConn("")
+			monitoring.DeleteConn(s.name)
 			close(s.exitChan)
 			return
 		}
-		monitoring.SendMetric("", monitoring.RcvdBytes, n)
+		monitoring.RcvdBytes(s.name, n)
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var count int
 		buf, count = s.processBuf(buf)
-		monitoring.SendMetric("", monitoring.RcvdPackets, count)
+		monitoring.RcvdPkts(s.name, count)
 	}
 }
 
@@ -252,7 +254,7 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 		return
 	}
 	if n, err := s.conn.Write(packet); err == nil {
-		monitoring.SendMetric("", monitoring.SentBytes, n)
+		monitoring.SentBytes(s.name, n)
 	}
 	return
 }

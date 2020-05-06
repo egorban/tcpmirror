@@ -282,7 +282,7 @@ func (c *Ndtp) checkQueue() {
 		case <-c.exitChan:
 			return
 		case <-ticker.C:
-			monitoring.SendMetric(c.name, monitoring.QueuedPkts, len(c.Input))
+			monitoring.QueuedPkts(c.name, len(c.Input))
 		}
 	}
 }
@@ -351,7 +351,7 @@ func (c *Ndtp) connStatus() {
 }
 
 func (c *Ndtp) reconnect() {
-	monitoring.CloseConn(c.name)
+	monitoring.DeleteConn(c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {

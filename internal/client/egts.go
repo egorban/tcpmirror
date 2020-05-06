@@ -97,7 +97,7 @@ func (c *Egts) clientLoop() {
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 					} else {
-						monitoring.SendMetric(c.name, monitoring.SentPackets, count)
+						monitoring.SentPkts(c.name, count)
 					}
 					buf = []byte(nil)
 					count = 0
@@ -107,7 +107,7 @@ func (c *Egts) clientLoop() {
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 					} else {
-						monitoring.SendMetric(c.name, monitoring.SentPackets, count)
+						monitoring.SentPkts(c.name, count)
 					}
 					buf = []byte(nil)
 					count = 0
@@ -165,7 +165,7 @@ func (c *Egts) send(buf []byte) (err error) {
 		if err != nil {
 			c.conStatus()
 		}
-		monitoring.SendMetric(c.name, monitoring.SentBytes, n)
+		monitoring.SentBytes(c.name, n)
 	}
 	return err
 }
@@ -284,7 +284,7 @@ OLDLOOP:
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					} else {
-						monitoring.SendMetric(c.name, monitoring.SentPackets, i)
+						monitoring.SentPkts(c.name, i)
 					}
 					i = 0
 					buf = []byte(nil)
@@ -295,7 +295,7 @@ OLDLOOP:
 				if err = c.send(buf); err != nil {
 					c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 				} else {
-					monitoring.SendMetric(c.name, monitoring.SentPackets, i)
+					monitoring.SentPkts(c.name, i)
 				}
 			}
 		} else {

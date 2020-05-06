@@ -205,17 +205,18 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		time.Sleep(5 * time.Second)
 		return nil
 	}
+	monitoring.RcvdBytes(c.name, n)
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	var count int
 	buf, count, err = c.processPacket(buf)
-	monitoring.SendMetric(c.name, monitoring.RcvdBytes, count)
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
 		if len(buf) > 1024 {
 			return []byte{}
 		}
 	}
+	monitoring.RcvdPkts(c.name, count)
 	return buf
 }
 
@@ -239,7 +240,6 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, int, error) {
 			}
 		} else if service == 0 && packetType == 0 { //TODO заменить service на константу
 			count++
-			monitoring.SendMetric(c.name, monitoring.RcvdPackets, 1)
 			if c.auth {
 				c.send2Channel(c.Output, packet)
 			} else {
@@ -309,7 +309,7 @@ func (c *NdtpMaster) checkQueue() {
 		case <-c.exitChan:
 			return
 		case <-ticker.C:
-			monitoring.SendMetric(c.name, monitoring.QueuedPkts, len(c.Input))
+			monitoring.QueuedPkts(c.name, len(c.Input))
 		}
 	}
 }
@@ -375,7 +375,7 @@ func (c *NdtpMaster) connStatus() {
 }
 
 func (c *NdtpMaster) reconnect() {
-	monitoring.CloseConn(c.name)
+	monitoring.DeleteConn(c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {

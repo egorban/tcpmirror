@@ -28,6 +28,6 @@ func send(conn net.Conn, name string, packet []byte) error {
 		return err
 	}
 	n, err := conn.Write(packet)
-	monitoring.SendMetric(name, monitoring.SentBytes, n)
+	monitoring.SentBytes(name, n)
 	return err
 }
