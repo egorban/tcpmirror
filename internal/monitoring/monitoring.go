@@ -15,14 +15,15 @@ import (
 const (
 	AttMonName = "att"
 
-	visTable   = "vis"
-	attTable   = "source"
-	sentBytes  = "sentBytes"
-	rcvdBytes  = "rcvdBytes"
-	sentPkts   = "sentPkts"
-	rcvdPkts   = "rcvdPkts"
+	SentBytes  = "sentBytes"
+	RcvdBytes  = "rcvdBytes"
+	SentPkts   = "sentPkts"
+	RcvdPkts   = "rcvdPkts"
 	conns      = "connections"
-	queuedPkts = "queuedPkts"
+	QueuedPkts = "queuedPkts"
+
+	visTable = "vis"
+	attTable = "source"
 )
 
 var (
@@ -74,26 +75,6 @@ func initSystemsConns(systems []util.System) map[string]uint64 {
 	return connsSystems
 }
 
-func SentBytes(systemName string, count int) {
-	sendMetric(systemName, sentBytes, strconv.Itoa(count))
-}
-
-func RcvdBytes(systemName string, count int) {
-	sendMetric(systemName, rcvdBytes, strconv.Itoa(count))
-}
-
-func SentPkts(systemName string, count int) {
-	sendMetric(systemName, sentPkts, strconv.Itoa(count))
-}
-
-func RcvdPkts(systemName string, count int) {
-	sendMetric(systemName, rcvdPkts, strconv.Itoa(count))
-}
-
-func QueuedPkts(systemName string, count int) {
-	sendMetric(systemName, queuedPkts, strconv.Itoa(count))
-}
-
 func NewConn(systemName string) {
 	muConn.Lock()
 	count := connsSystems[systemName]
@@ -103,7 +84,7 @@ func NewConn(systemName string) {
 	connsSystems[systemName] = count
 	muConn.Unlock()
 
-	sendMetric(systemName, conns, strconv.FormatUint(count, 10))
+	SendMetric(systemName, conns, strconv.FormatUint(count, 10))
 }
 
 func DeleteConn(systemName string) {
@@ -115,18 +96,20 @@ func DeleteConn(systemName string) {
 	connsSystems[systemName] = count
 	muConn.Unlock()
 
-	sendMetric(systemName, conns, strconv.FormatUint(count, 10))
+	SendMetric(systemName, conns, strconv.FormatUint(count, 10))
 }
 
-func sendMetric(systemName string, metric string, count string) {
+func SendMetric(systemName string, metric string, count string) {
+	logrus.Infof("defaultPoint1 %v", defaultPoint)
 	newPoint := defaultPoint
 	if systemName != AttMonName {
-		newPoint.tags["system"] = systemName
 		newPoint.table = visTable
 	} else {
 		newPoint.table = attTable
+		newPoint.tags["system"] = systemName
 	}
 	newPoint.values[metric] = count
+	logrus.Infof("newPoint %v", newPoint)
 	record := newPoint.toRecord()
 	send(record)
 }

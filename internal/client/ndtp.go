@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/ashirko/navprot/pkg/ndtp"
@@ -282,7 +283,7 @@ func (c *Ndtp) checkQueue() {
 		case <-c.exitChan:
 			return
 		case <-ticker.C:
-			monitoring.QueuedPkts(c.name, len(c.Input))
+			monitoring.SendMetric(c.name, monitoring.QueuedPkts, strconv.Itoa(len(c.Input)))
 		}
 	}
 }

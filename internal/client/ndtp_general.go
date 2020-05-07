@@ -2,6 +2,7 @@ package client
 
 import (
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -28,6 +29,6 @@ func send(conn net.Conn, name string, packet []byte) error {
 		return err
 	}
 	n, err := conn.Write(packet)
-	monitoring.SentBytes(name, n)
+	monitoring.SendMetric(name, monitoring.SentBytes, strconv.Itoa(n))
 	return err
 }

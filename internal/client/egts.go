@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -97,7 +98,7 @@ func (c *Egts) clientLoop() {
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 					} else {
-						monitoring.SentPkts(c.name, count)
+						monitoring.SendMetric(c.name, monitoring.SentPkts, strconv.Itoa(count))
 					}
 					buf = []byte(nil)
 					count = 0
@@ -107,7 +108,7 @@ func (c *Egts) clientLoop() {
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 					} else {
-						monitoring.SentPkts(c.name, count)
+						monitoring.SendMetric(c.name, monitoring.SentPkts, strconv.Itoa(count))
 					}
 					buf = []byte(nil)
 					count = 0
@@ -165,7 +166,7 @@ func (c *Egts) send(buf []byte) (err error) {
 		if err != nil {
 			c.conStatus()
 		}
-		monitoring.SentBytes(c.name, n)
+		monitoring.SendMetric(c.name, monitoring.SentBytes, strconv.Itoa(n))
 	}
 	return err
 }
@@ -284,7 +285,7 @@ OLDLOOP:
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					} else {
-						monitoring.SentPkts(c.name, i)
+						monitoring.SendMetric(c.name, monitoring.SentPkts, strconv.Itoa(i))
 					}
 					i = 0
 					buf = []byte(nil)
@@ -295,7 +296,7 @@ OLDLOOP:
 				if err = c.send(buf); err != nil {
 					c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 				} else {
-					monitoring.SentPkts(c.name, i)
+					monitoring.SendMetric(c.name, monitoring.SentPkts, strconv.Itoa(i))
 				}
 			}
 		} else {
