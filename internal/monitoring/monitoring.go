@@ -105,9 +105,9 @@ func SendMetric(systemName string, metric string, count string) {
 	}
 	if systemName != AttMonName {
 		newPoint.table = visTable
+		newPoint.tags["system"] = systemName
 	} else {
 		newPoint.table = attTable
-		newPoint.tags["system"] = systemName
 	}
 	logrus.Infof("newPoint %v", newPoint)
 	record := newPoint.toRecord()
