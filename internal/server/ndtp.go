@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,7 +103,7 @@ func (s *ndtpServer) receiveFromMaster() {
 			return
 		case packet := <-s.masterOut:
 			s.logger.Tracef("received packet from master: %v", packet)
-			monitoring.SentPkts(s.name, 1)
+			monitoring.SendMetric(s.name, monitoring.SentPkts, "1")
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
@@ -132,12 +133,12 @@ func (s *ndtpServer) serverLoop() {
 			close(s.exitChan)
 			return
 		}
-		monitoring.RcvdBytes(s.name, n)
+		monitoring.SendMetric(s.name, monitoring.RcvdBytes, strconv.Itoa(n))
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var count int
 		buf, count = s.processBuf(buf)
-		monitoring.RcvdPkts(s.name, count)
+		monitoring.SendMetric(s.name, monitoring.RcvdPkts, strconv.Itoa(count))
 	}
 }
 
@@ -254,7 +255,7 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 		return
 	}
 	if n, err := s.conn.Write(packet); err == nil {
-		monitoring.SentBytes(s.name, n)
+		monitoring.SendMetric(s.name, monitoring.SentBytes, strconv.Itoa(n))
 	}
 	return
 }

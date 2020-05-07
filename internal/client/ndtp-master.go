@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/ashirko/navprot/pkg/ndtp"
@@ -205,7 +206,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		time.Sleep(5 * time.Second)
 		return nil
 	}
-	monitoring.RcvdBytes(c.name, n)
+	monitoring.SendMetric(c.name, monitoring.RcvdBytes, strconv.Itoa(n))
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	var count int
@@ -216,7 +217,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 			return []byte{}
 		}
 	}
-	monitoring.RcvdPkts(c.name, count)
+	monitoring.SendMetric(c.name, monitoring.RcvdPkts, strconv.Itoa(count))
 	return buf
 }
 
@@ -309,7 +310,7 @@ func (c *NdtpMaster) checkQueue() {
 		case <-c.exitChan:
 			return
 		case <-ticker.C:
-			monitoring.QueuedPkts(c.name, len(c.Input))
+			monitoring.SendMetric(c.name, monitoring.QueuedPkts, strconv.Itoa(len(c.Input)))
 		}
 	}
 }
