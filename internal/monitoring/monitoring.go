@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
@@ -77,6 +78,7 @@ func periodicMon() {
 			SendMetric(name, conns, strconv.FormatUint(count, 10))
 		}
 		muConn.Unlock()
+		time.Sleep(30 * time.Second)
 	}
 }
 
