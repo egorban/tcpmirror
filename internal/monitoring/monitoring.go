@@ -52,6 +52,7 @@ func Init(address string, systems []util.System) (enable bool, err error) {
 	connsSystems = initSystemsConns(systems)
 	logrus.Infof("start sending metrics to influx to %+s:%+v, instance: %+s",
 		monAddr.IP, monAddr.Port, util.Instance)
+	go periodicMon()
 	return true, nil
 }
 
@@ -67,6 +68,16 @@ func initSystemsConns(systems []util.System) map[string]uint64 {
 	}
 
 	return connsSystems
+}
+
+func periodicMon() {
+	for {
+		muConn.Lock()
+		for name, count := range connsSystems {
+			SendMetric(name, conns, strconv.FormatUint(count, 10))
+		}
+		muConn.Unlock()
+	}
 }
 
 func NewConn(systemName string) {
