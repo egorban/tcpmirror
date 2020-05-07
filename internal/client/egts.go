@@ -75,6 +75,7 @@ func (c *Egts) start() {
 }
 
 func (c *Egts) clientLoop() {
+	monitoring.NewConn(c.name)
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -323,6 +324,7 @@ func (c *Egts) conStatus() {
 }
 
 func (c *Egts) reconnect() {
+	monitoring.DeleteConn(c.name)
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -332,6 +334,7 @@ func (c *Egts) reconnect() {
 				c.conn = cE
 				c.open = true
 				c.logger.Println("reconnected")
+				monitoring.NewConn(c.name)
 				go c.updateRecStatus()
 				return
 			}
