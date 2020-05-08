@@ -2,10 +2,11 @@ package util
 
 import (
 	"flag"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"path/filepath"
 	"strings"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -31,6 +32,7 @@ type System struct {
 	Address  string
 	Protocol string
 	IsMaster bool
+	Name     string
 }
 
 // Args contains parsed params from configuration file
@@ -65,7 +67,7 @@ const egtsKey = "egts"
 var (
 	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	// EgtsName is prefix for storing data in DB for different consumer systems
-	EgtsName string
+	EgtsName       string
 	InstancePrefix string
 )
 
@@ -83,7 +85,7 @@ func parseConfig(conf string) (args *Args, err error) {
 		return
 	}
 	confName := strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
-	InstancePrefix = "tcpmirror."+confName + "_instance.metrics"
+	InstancePrefix = "tcpmirror." + confName + "_instance.metrics"
 	args.DB = viper.GetString(db)
 	args.Listen = viper.GetString(listen)
 	args.Protocol = viper.GetString(protocol)
@@ -139,5 +141,6 @@ func parseSystem(key string) System {
 	sys.Address = data["address"].(string)
 	sys.Protocol = data["protocol"].(string)
 	sys.IsMaster = data["master"].(bool)
+	sys.Name = string(sys.ID) + "_" + key + "_" + sys.Protocol
 	return sys
 }
