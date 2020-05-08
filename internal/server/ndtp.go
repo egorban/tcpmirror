@@ -3,14 +3,16 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/ashirko/tcpmirror/internal/client"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/ashirko/tcpmirror/internal/client"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 type ndtpServer struct {
@@ -20,13 +22,13 @@ type ndtpServer struct {
 	logger      *logrus.Entry
 	pool        *db.Pool
 	exitChan    chan struct{}
-	mon         bool
+	mon         *monitoring.MonInfo
 	masterIn    chan []byte
 	masterOut   chan []byte
 	ndtpClients []client.Client
 	channels    []chan []byte
 	packetNum   uint32
-	confChan	chan *db.ConfMsg
+	confChan    chan *db.ConfMsg
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -116,6 +118,7 @@ func (s *ndtpServer) serverLoop() {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
+		s.mon
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
 		//todo remove after testing

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -56,8 +57,8 @@ type Args struct {
 
 // Options contains information about DB options and monitoring options
 type Options struct {
-	// Is monitoring enabled
-	Mon bool
+	// monitoring info
+	MonInfo *monitoring.MonInfo
 	// DB sever address
 	DB string
 }
