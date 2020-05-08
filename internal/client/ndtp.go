@@ -2,13 +2,14 @@ package client
 
 import (
 	"errors"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
-	"net"
-	"sync"
-	"time"
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
@@ -31,6 +32,7 @@ type Ndtp struct {
 	*ndtpSession
 	*connection
 	confChan chan *db.ConfMsg
+	name     string
 }
 
 // NewNdtp creates new Ndtp client
@@ -41,6 +43,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.ndtpSession = new(ndtpSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_client", "vis": sys.ID})
 	c.Options = options

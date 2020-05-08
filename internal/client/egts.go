@@ -2,13 +2,14 @@ package client
 
 import (
 	"fmt"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/ashirko/navprot/pkg/egts"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
-	"net"
-	"sync"
-	"time"
 )
 
 // EgtsChanSize defines size of EGTS client input chanel buffer
@@ -22,6 +23,7 @@ type Egts struct {
 	*egtsSession
 	*connection
 	confChan chan *db.ConfMsg
+	name     string
 }
 
 type egtsSession struct {
@@ -37,6 +39,7 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	c.egtsSession = new(egtsSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
 	c.Options = options
