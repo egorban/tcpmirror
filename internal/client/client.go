@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
@@ -42,7 +41,7 @@ type info struct {
 	address string
 	logger  *logrus.Entry
 	*util.Options
-	monInfo *monitoring.Mon
+	name string
 }
 
 // Start client

@@ -50,7 +50,7 @@ func initialize(args *util.Args) (options *util.Options, err error) {
 	logrus.SetReportCaller(args.TestMode)
 	logrus.SetLevel(args.LogLevel)
 	options = new(util.Options)
-	options.Mon, err = monitoring.Init(args.Monitoring)
+	options.MonInfo, err = monitoring.Init(args.Monitoring)
 	if err != nil {
 		return
 	}

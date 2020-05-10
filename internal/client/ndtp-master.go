@@ -26,7 +26,6 @@ type NdtpMaster struct {
 	*ndtpSession
 	*connection
 	confChan chan *db.ConfMsg
-	name     string
 }
 
 // NewNdtpMaster creates new NdtpMaster client

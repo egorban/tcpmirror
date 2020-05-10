@@ -23,8 +23,6 @@ type Egts struct {
 	*egtsSession
 	*connection
 	confChan chan *db.ConfMsg
-	name     string
-
 }
 
 type egtsSession struct {
@@ -46,7 +44,6 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	c.Options = options
 	c.Input = make(chan []byte, EgtsChanSize)
 	c.confChan = confChan
-	c.monClient = 
 	return c
 }
 

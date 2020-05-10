@@ -32,7 +32,6 @@ type Ndtp struct {
 	*ndtpSession
 	*connection
 	confChan chan *db.ConfMsg
-	name     string
 }
 
 // NewNdtp creates new Ndtp client

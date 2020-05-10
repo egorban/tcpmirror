@@ -85,7 +85,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		logger:      logrus.WithField("type", "ndtp_server"),
 		pool:        pool,
 		exitChan:    exitChan,
-		mon:         options.Mon,
+		mon:         options.MonInfo,
 		masterIn:    master.InputChannel(),
 		masterOut:   master.OutputChannel(),
 		ndtpClients: append(clients, master),
@@ -118,7 +118,7 @@ func (s *ndtpServer) serverLoop() {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
-		s.mon
+		//	s.mon.SendMetric(s.name, monitoring.RcvdBytes, n)
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
 		//todo remove after testing
