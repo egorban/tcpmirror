@@ -34,7 +34,7 @@ func Init(address string, systems []util.System) (monEnable bool, monClient *inf
 		logrus.Println("start without sending metrics to influx")
 		return
 	}
-	monClient, err = influx.NewClient(address, 30*1000, 5000)
+	monClient, err = influx.NewClient(address, 3e8, 5000)
 	if err != nil {
 		logrus.Println("error while connecting to influx", err)
 		return
