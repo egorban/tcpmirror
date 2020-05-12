@@ -119,12 +119,14 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
+	monitoring.NewConn(c.Options, c.name)
 	for {
 		if c.open {
 			select {
 			case <-c.exitChan:
 				return
 			case message := <-c.Input:
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
 			}
 		} else {
@@ -330,8 +332,10 @@ func (c *Ndtp) send(conn net.Conn, packet []byte) error {
 		return err
 	}
 	n, err := conn.Write(packet)
-	monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
-	monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, 1)
+	if err == nil {
+		monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
+		monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, 1)
+	}
 	return err
 }
 
@@ -362,6 +366,7 @@ func (c *Ndtp) connStatus() {
 }
 
 func (c *Ndtp) reconnect() {
+	monitoring.DelConn(c.Options, c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
@@ -379,6 +384,7 @@ func (c *Ndtp) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
+					monitoring.NewConn(c.Options, c.name)
 					go c.chanReconStatus()
 					return
 				}

@@ -12,19 +12,17 @@ import (
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/egorban/influx/pkg/influx"
 	"github.com/sirupsen/logrus"
 )
 
 type ndtpServer struct {
-	conn        net.Conn
-	terminalID  int
-	sessionID   int
-	logger      *logrus.Entry
-	pool        *db.Pool
-	exitChan    chan struct{}
-	monEnable   bool
-	monClient   *influx.Client
+	conn       net.Conn
+	terminalID int
+	sessionID  int
+	logger     *logrus.Entry
+	pool       *db.Pool
+	exitChan   chan struct{}
+	*util.Options
 	masterIn    chan []byte
 	masterOut   chan []byte
 	ndtpClients []client.Client
@@ -88,8 +86,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		logger:      logrus.WithField("type", "ndtp_server"),
 		pool:        pool,
 		exitChan:    exitChan,
-		monEnable:   options.MonEnable,
-		monClient:   options.MonСlient,
+		Options:     options,
 		masterIn:    master.InputChannel(),
 		masterOut:   master.OutputChannel(),
 		ndtpClients: append(clients, master),
@@ -105,12 +102,12 @@ func (s *ndtpServer) receiveFromMaster() {
 			return
 		case packet := <-s.masterOut:
 			s.logger.Tracef("received packet from master: %v", packet)
-			monitoring.SendMetric(s.monClient, s.name, monitoring.SentPkts, 1)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
 				return
 			}
+			monitoring.SendMetric(s.Options, s.name, monitoring.SentPkts, 1)
 		}
 	}
 }
@@ -124,7 +121,7 @@ func (s *ndtpServer) serverLoop() {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
-		monitoring.SendMetric(s.monClient, s.name, monitoring.RcvdBytes, n)
+		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
 		//todo remove after testing
@@ -138,7 +135,7 @@ func (s *ndtpServer) serverLoop() {
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var numPacks uint
 		buf, numPacks = s.processBuf(buf)
-		monitoring.SendMetric(s.monClient, s.name, monitoring.RcvdPkts, numPacks)
+		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, numPacks)
 	}
 }
 
@@ -256,7 +253,7 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	}
 	var n int
 	n, err = s.conn.Write(packet)
-	monitoring.SendMetric(s.monClient, s.name, monitoring.SentBytes, n)
+	monitoring.SendMetric(s.Options, s.name, monitoring.SentBytes, n)
 	return
 }
 

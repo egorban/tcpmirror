@@ -70,11 +70,11 @@ func (c *Egts) start() {
 	}
 	go c.old()
 	go c.replyHandler()
-	//go c.monSendQueue()
 	c.clientLoop()
 }
 
 func (c *Egts) clientLoop() {
+	monitoring.NewConn(c.Options, c.name)
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -89,6 +89,7 @@ func (c *Egts) clientLoop() {
 		if c.open {
 			select {
 			case message := <-c.Input:
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				if db.CheckOldData(dbConn, message, c.logger) {
 					continue
 				}
@@ -148,23 +149,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 	return egtsMessageID, egtsRecID, err
 }
 
-func (c *Egts) send(buf []byte, count int) {
-	if c.open {
-		util.PrintPacket(c.logger, "sending packet: ", buf)
-		if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
-			c.logger.Warningf("can't SetWriteDeadline: %s", err)
-		}
-		n, err := c.conn.Write(buf)
-		if err != nil {
-			c.conStatus()
-		} else {
-			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
-			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, count)
-		}
-	}
-}
-
-func (c *Egts) sendOld(buf []byte, count int) (err error) {
+func (c *Egts) send(buf []byte, count int) (err error) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
@@ -174,8 +159,8 @@ func (c *Egts) sendOld(buf []byte, count int) (err error) {
 		if err != nil {
 			c.conStatus()
 		} else {
-			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
-			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, count)
+			monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
+			monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
 		}
 	}
 	return err
@@ -291,7 +276,7 @@ OLDLOOP:
 				i++
 				if i > 9 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					if err = c.sendOld(buf, i); err != nil {
+					if err = c.send(buf, i); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
@@ -327,6 +312,7 @@ func (c *Egts) conStatus() {
 }
 
 func (c *Egts) reconnect() {
+	monitoring.DelConn(c.Options, c.name)
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -336,6 +322,7 @@ func (c *Egts) reconnect() {
 				c.conn = cE
 				c.open = true
 				c.logger.Println("reconnected")
+				monitoring.NewConn(c.Options, c.name)
 				go c.updateRecStatus()
 				return
 			}

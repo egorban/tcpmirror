@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	defaultTags  influx.Tags
+	//	defaultTags  influx.Tags
 	connsSystems map[string]uint64
 	muConn       sync.Mutex
 )
@@ -40,7 +40,6 @@ func Init(address string, systems []util.System) (monEnable bool, monClient *inf
 		return
 	}
 	connsSystems = initSystemsConns(systems)
-	defaultTags = setDefaultTags()
 	monEnable = true
 	return
 }
@@ -59,7 +58,10 @@ func initSystemsConns(systems []util.System) map[string]uint64 {
 	return connsSystems
 }
 
-func NewConn(monClient *influx.Client, systemName string) {
+func NewConn(options *util.Options, systemName string) {
+	if !options.MonEnable {
+		return
+	}
 	muConn.Lock()
 	numConn := connsSystems[systemName]
 	if numConn < math.MaxUint64 {
@@ -68,10 +70,13 @@ func NewConn(monClient *influx.Client, systemName string) {
 	}
 	muConn.Unlock()
 	p := formPoint(systemName, numConnections, numConn)
-	monClient.WritePoint(p)
+	options.MonСlient.WritePoint(p)
 }
 
-func DelConn(monClient *influx.Client, systemName string) {
+func DelConn(options *util.Options, systemName string) {
+	if !options.MonEnable {
+		return
+	}
 	muConn.Lock()
 	numConn := connsSystems[systemName]
 	if numConn > 0 {
@@ -80,18 +85,25 @@ func DelConn(monClient *influx.Client, systemName string) {
 	}
 	muConn.Unlock()
 	p := formPoint(systemName, numConnections, numConn)
-	monClient.WritePoint(p)
+	options.MonСlient.WritePoint(p)
 }
 
-func SendMetric(monClient *influx.Client, systemName string, metricName string, value interface{}) {
+func SendMetric(options *util.Options, systemName string, metricName string, value interface{}) {
+	if !options.MonEnable {
+		return
+	}
 	logrus.Println("DEBUG Send Metric", systemName, metricName, value)
 	p := formPoint(systemName, metricName, value)
 	logrus.Println("DEBUG Send Metric Point", p)
-	monClient.WritePoint(p)
+	options.MonСlient.WritePoint(p)
 }
 
 func formPoint(systemName string, metricName string, value interface{}) *influx.Point {
-	tags := defaultTags
+	host := "10_1_116_55"
+	tags := influx.Tags{
+		"host":     host,
+		"instance": util.Instance,
+	}
 	var table string
 	if systemName == TerminalName {
 		table = attTable
@@ -104,12 +116,4 @@ func formPoint(systemName string, metricName string, value interface{}) *influx.
 	}
 	p := influx.NewPoint(table, tags, values)
 	return p
-}
-
-func setDefaultTags() influx.Tags {
-	host := "10_1_116_55"
-	return influx.Tags{
-		"host":     host,
-		"instance": util.Instance,
-	}
 }
