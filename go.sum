@@ -45,6 +45,10 @@ github.com/egorban/influx v0.0.0-20200512114121-1e327c6a3753 h1:pWhMbT+cMwt4eiKf
 github.com/egorban/influx v0.0.0-20200512114121-1e327c6a3753/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
 github.com/egorban/influx v0.0.0-20200512115343-29305c87027c h1:uW9jbbR6xBW/udFneFIks6zQwLlbf+eU5dB7Vc46kdQ=
 github.com/egorban/influx v0.0.0-20200512115343-29305c87027c/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
+github.com/egorban/influx v0.0.0-20200512135016-7916a24d6736 h1:bcxvs3w4hsrX4e8ziA5W7WQi5sIfhevbKd/VOFTBAy8=
+github.com/egorban/influx v0.0.0-20200512135016-7916a24d6736/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
+github.com/egorban/influx v0.0.0-20200512140641-4d824b2b20f0 h1:z3NKTXNK+5mnWZFtvBw91o0RCXYtgqnV9Zgj1AJ4A8g=
+github.com/egorban/influx v0.0.0-20200512140641-4d824b2b20f0/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
 github.com/egorban/tcpmirror v1.0.0 h1:yAmyZN28XUuSSWAa4CqhOPkSZ7bLavVvwFirExrNW+c=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
