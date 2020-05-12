@@ -3,6 +3,7 @@ package monitoring
 import (
 	"math"
 	"sync"
+	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/egorban/influx/pkg/influx"
@@ -41,6 +42,7 @@ func Init(address string, systems []util.System) (monEnable bool, monClient *inf
 	}
 	connsSystems = initSystemsConns(systems)
 	monEnable = true
+	go periodicMon(monClient)
 	return
 }
 
@@ -56,6 +58,18 @@ func initSystemsConns(systems []util.System) map[string]uint64 {
 	}
 
 	return connsSystems
+}
+
+func periodicMon(monСlient *influx.Client) {
+	for {
+		muConn.Lock()
+		for systemName, numConn := range connsSystems {
+			p := formPoint(systemName, numConnections, numConn)
+			monСlient.WritePoint(p)
+		}
+		muConn.Unlock()
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func NewConn(options *util.Options, systemName string) {
