@@ -69,6 +69,7 @@ func (c *Egts) start() {
 	}
 	go c.old()
 	go c.replyHandler()
+	//go c.monSendQueue()
 	c.clientLoop()
 }
 

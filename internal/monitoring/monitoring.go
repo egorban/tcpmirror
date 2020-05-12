@@ -1,69 +1,113 @@
 package monitoring
 
 import (
+	"math"
+	"sync"
+
+	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/egorban/influx/pkg/influx"
 	"github.com/sirupsen/logrus"
 )
 
 const (
+	TerminalName = "terminal"
+
 	visTable = "vis"
 	attTable = "source"
+
+	SentBytes      = "sentBytes"
+	RcvdBytes      = "rcvdBytes"
+	SentPkts       = "sentPkts"
+	RcvdPkts       = "rcvdPkts"
+	QueuedPkts     = "queuedPkts"
+	numConnections = "numConnections"
 )
 
 var (
-	Instance    string
-	defaultTags influx.Tags
+	defaultTags  influx.Tags
+	connsSystems map[string]uint64
+	muConn       sync.Mutex
 )
 
-type MonInfo struct {
-	enabled bool
-	client  *influx.Client
-}
-
-func Init(address string) (monInfo *MonInfo, err error) {
+func Init(address string, systems []util.System) (monEnable bool, monClient *influx.Client, err error) {
 	if address == "" {
 		logrus.Println("start without sending metrics to influx")
 		return
 	}
-	monClient, err := influx.NewClient(address, 30*1000, 5000)
+	monClient, err = influx.NewClient(address, 30*1000, 5000)
 	if err != nil {
 		logrus.Println("error while connecting to influx", err)
 		return
 	}
-	monInfo = new(MonInfo)
-	monInfo.client = monClient
+	connsSystems = initSystemsConns(systems)
 	defaultTags = setDefaultTags()
-	monInfo.enabled = true
+	monEnable = true
 	return
 }
 
-func (info *MonInfo) AttSendMetric(metricName string, value interface{}) {
-	info.SendMetric(attTable, "", metricName, value)
-}
+func initSystemsConns(systems []util.System) map[string]uint64 {
+	muConn.Lock()
+	defer muConn.Unlock()
 
-func (info *MonInfo) VisSendMetric(systemName string, metricName string, value interface{}) {
-	info.SendMetric(visTable, systemName, metricName, value)
-}
+	connsSystems = make(map[string]uint64, len(systems)+1)
 
-func (info *MonInfo) SendMetric(table string, systemName string, metricName string, value interface{}) {
-	if !info.enabled {
-		return
+	connsSystems[TerminalName] = 0
+	for _, sys := range systems {
+		connsSystems[sys.Name] = 0
 	}
+
+	return connsSystems
+}
+
+func NewConn(monClient *influx.Client, systemName string) {
+	muConn.Lock()
+	numConn := connsSystems[systemName]
+	if numConn < math.MaxUint64 {
+		numConn++
+		connsSystems[systemName] = numConn
+	}
+	muConn.Unlock()
+	p := formPoint(systemName, numConnections, numConn)
+	monClient.WritePoint(p)
+}
+
+func DelConn(monClient *influx.Client, systemName string) {
+	muConn.Lock()
+	numConn := connsSystems[systemName]
+	if numConn > 0 {
+		numConn--
+		connsSystems[systemName] = numConn
+	}
+	muConn.Unlock()
+	p := formPoint(systemName, numConnections, numConn)
+	monClient.WritePoint(p)
+}
+
+func SendMetric(monClient *influx.Client, systemName string, metricName string, value interface{}) {
+	p := formPoint(systemName, metricName, value)
+	monClient.WritePoint(p)
+}
+
+func formPoint(systemName string, metricName string, value interface{}) *influx.Point {
 	tags := defaultTags
+	var table string
+	if systemName == TerminalName {
+		table = attTable
+	} else {
+		table = visTable
+		tags["system"] = systemName
+	}
 	values := influx.Values{
 		metricName: value,
 	}
-	if table == visTable {
-		tags["system"] = systemName
-	}
 	p := influx.NewPoint(table, tags, values)
-	info.client.WritePoint(p)
+	return p
 }
 
 func setDefaultTags() influx.Tags {
 	host := "10_1_116_55"
 	return influx.Tags{
 		"host":     host,
-		"instance": Instance,
+		"instance": util.Instance,
 	}
 }
