@@ -7,6 +7,7 @@ import (
 
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
@@ -322,10 +323,21 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return send(c.conn, packet)
+		return c.send(c.conn, packet)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
+}
+
+func (c *NdtpMaster) send(conn net.Conn, packet []byte) error {
+	err := conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	if err != nil {
+		return err
+	}
+	n, err := conn.Write(packet)
+	monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
+	monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, 1)
+	return err
 }
 
 func (c *NdtpMaster) getNphID() (uint32, error) {

@@ -105,6 +105,7 @@ func (s *ndtpServer) receiveFromMaster() {
 			return
 		case packet := <-s.masterOut:
 			s.logger.Tracef("received packet from master: %v", packet)
+			monitoring.SendMetric(s.monClient, s.name, monitoring.SentPkts, 1)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
@@ -137,7 +138,6 @@ func (s *ndtpServer) serverLoop() {
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var numPacks uint
 		buf, numPacks = s.processBuf(buf)
-		//s.mon.SendMetric(s.name, monitoring.RcvdPkts, numPacks)
 		monitoring.SendMetric(s.monClient, s.name, monitoring.RcvdPkts, numPacks)
 	}
 }
@@ -254,7 +254,9 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = s.conn.Write(packet)
+	var n int
+	n, err = s.conn.Write(packet)
+	monitoring.SendMetric(s.monClient, s.name, monitoring.SentBytes, n)
 	return
 }
 

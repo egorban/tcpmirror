@@ -8,6 +8,7 @@ import (
 
 	"github.com/ashirko/navprot/pkg/egts"
 	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
@@ -94,13 +95,13 @@ func (c *Egts) clientLoop() {
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {
-					c.send(buf)
+					c.send(buf, count)
 					buf = []byte(nil)
 					count = 0
 				}
 			case <-sendTicker.C:
 				if (count > 0) && (count < 10) {
-					c.send(buf)
+					c.send(buf, count)
 					buf = []byte(nil)
 					count = 0
 				}
@@ -147,28 +148,34 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 	return egtsMessageID, egtsRecID, err
 }
 
-func (c *Egts) send(buf []byte) {
+func (c *Egts) send(buf []byte, count int) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 			c.logger.Warningf("can't SetWriteDeadline: %s", err)
 		}
-		_, err := c.conn.Write(buf)
+		n, err := c.conn.Write(buf)
 		if err != nil {
 			c.conStatus()
+		} else {
+			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
+			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, count)
 		}
 	}
 }
 
-func (c *Egts) sendOld(buf []byte) (err error) {
+func (c *Egts) sendOld(buf []byte, count int) (err error) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 			c.logger.Warningf("can't SetWriteDeadline: %s", err)
 		}
-		_, err = c.conn.Write(buf)
+		n, err := c.conn.Write(buf)
 		if err != nil {
 			c.conStatus()
+		} else {
+			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentBytes, n)
+			monitoring.SendMetric(c.MonСlient, c.name, monitoring.SentPkts, count)
 		}
 	}
 	return err
@@ -284,7 +291,7 @@ OLDLOOP:
 				i++
 				if i > 9 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					if err = c.sendOld(buf); err != nil {
+					if err = c.sendOld(buf, i); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
@@ -294,7 +301,7 @@ OLDLOOP:
 			}
 			if len(buf) > 0 {
 				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
-				c.send(buf)
+				c.send(buf, i)
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)

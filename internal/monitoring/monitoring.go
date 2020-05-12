@@ -84,7 +84,9 @@ func DelConn(monClient *influx.Client, systemName string) {
 }
 
 func SendMetric(monClient *influx.Client, systemName string, metricName string, value interface{}) {
+	logrus.Println("DEBUG Send Metric", systemName, metricName, value)
 	p := formPoint(systemName, metricName, value)
+	logrus.Println("DEBUG Send Metric Point", p)
 	monClient.WritePoint(p)
 }
 
