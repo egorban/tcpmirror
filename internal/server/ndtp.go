@@ -194,6 +194,7 @@ func (s *ndtpServer) waitFirstMessage() error {
 		s.logger.Warningf("can't set ReadDeadLine for client connection: %s", err)
 	}
 	n, err := s.conn.Read(b[:])
+	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
 	if err != nil {
 		s.logger.Warningf("can't get first message from client: %s", err)
 		return err
@@ -227,6 +228,7 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 		err = fmt.Errorf("setSessionID error: %s", err)
 		return
 	}
+	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, 1)
 	s.setIDClients()
 	ip := ip(s.conn)
 	packetData.ChangeAddress(ip)

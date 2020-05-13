@@ -102,6 +102,7 @@ func (c *NdtpMaster) authorization() error {
 	if err != nil {
 		return err
 	}
+	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
 	_, err = c.processPacket(b[:n])
 	if err != nil {
 		return err
@@ -205,6 +206,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		time.Sleep(5 * time.Second)
 		return nil
 	}
+	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	buf, err = c.processPacket(buf)
@@ -236,9 +238,11 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 			}
 		} else if service == 0 && packetType == 0 {
 			if c.auth {
+				monitoring.SendMetric(c.Options, c.name, monitoring.RcvdPkts, 1)
 				c.send2Channel(c.Output, packet)
 			} else {
 				c.logger.Tracef("received auth reply")
+				monitoring.SendMetric(c.Options, c.name, monitoring.RcvdPkts, 1)
 				c.auth = true
 			}
 			continue
@@ -325,18 +329,18 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return c.send(c.conn, packet)
+		return c.send(packet)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
 }
 
-func (c *NdtpMaster) send(conn net.Conn, packet []byte) error {
-	err := conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+func (c *NdtpMaster) send(packet []byte) error {
+	err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err != nil {
 		return err
 	}
-	n, err := conn.Write(packet)
+	n, err := c.conn.Write(packet)
 	if err == nil {
 		monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
 		monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, 1)
