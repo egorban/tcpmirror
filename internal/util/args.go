@@ -3,6 +3,7 @@ package util
 import (
 	"flag"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/egorban/influx/pkg/influx"
@@ -139,10 +140,11 @@ func parseSystems(list []string) []System {
 func parseSystem(key string) System {
 	data := viper.GetStringMap(key)
 	sys := System{}
-	sys.ID = byte(data["id"].(int64))
+	id := data["id"].(int64)
+	sys.ID = byte(id)
 	sys.Address = data["address"].(string)
 	sys.Protocol = data["protocol"].(string)
 	sys.IsMaster = data["master"].(bool)
-	sys.Name = string(sys.ID) + "_" + key + "_" + sys.Protocol
+	sys.Name = strconv.FormatInt(id, 10) + "_" + key + "_" + sys.Protocol
 	return sys
 }

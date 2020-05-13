@@ -106,9 +106,7 @@ func SendMetric(options *util.Options, systemName string, metricName string, val
 	if !options.MonEnable {
 		return
 	}
-	logrus.Println("DEBUG Send Metric", systemName, metricName, value)
 	p := formPoint(systemName, metricName, value)
-	logrus.Println("DEBUG Send Metric Point", p)
 	options.MonСlient.WritePoint(p)
 }
 
