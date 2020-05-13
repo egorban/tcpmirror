@@ -370,17 +370,19 @@ func (c *NdtpMaster) connStatus() {
 	c.open = false
 	c.auth = false
 	monitoring.DelConn(c.Options, c.name)
-	c.reconnect()
-	monitoring.NewConn(c.Options, c.name)
+	res := c.reconnect()
+	if res {
+		monitoring.NewConn(c.Options, c.name)
+	}
 }
 
-func (c *NdtpMaster) reconnect() {
+func (c *NdtpMaster) reconnect() (res bool) {
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
 				c.logger.Println("close because server is closed")
-				return
+				return false
 			}
 			conn, err := net.Dial("tcp", c.address)
 			if err != nil {
@@ -393,7 +395,7 @@ func (c *NdtpMaster) reconnect() {
 				if err == nil {
 					c.logger.Printf("reconnected")
 					go c.chanReconStatus()
-					return
+					return true
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}

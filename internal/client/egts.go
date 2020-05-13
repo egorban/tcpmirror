@@ -319,11 +319,13 @@ func (c *Egts) conStatus() {
 	}
 	c.open = false
 	monitoring.DelConn(c.Options, c.name)
-	c.reconnect()
-	monitoring.NewConn(c.Options, c.name)
+	res := c.reconnect()
+	if res {
+		monitoring.NewConn(c.Options, c.name)
+	}
 }
 
-func (c *Egts) reconnect() {
+func (c *Egts) reconnect() (res bool) {
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -334,7 +336,7 @@ func (c *Egts) reconnect() {
 				c.open = true
 				c.logger.Println("reconnected")
 				go c.updateRecStatus()
-				return
+				return true
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}
