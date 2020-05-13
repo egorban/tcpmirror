@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"math"
 	"sync"
 	"time"
@@ -64,6 +65,7 @@ func periodicMon(monСlient *influx.Client) {
 	for {
 		muConn.Lock()
 		for systemName, numConn := range connsSystems {
+			log.Println("DEBUG periodicMon", systemName, numConn)
 			p := formPoint(systemName, numConnections, numConn)
 			monСlient.WritePoint(p)
 		}
@@ -73,6 +75,7 @@ func periodicMon(monСlient *influx.Client) {
 }
 
 func NewConn(options *util.Options, systemName string) {
+	log.Println("DEBUG NewConn", systemName)
 	if !options.MonEnable {
 		return
 	}
@@ -88,6 +91,7 @@ func NewConn(options *util.Options, systemName string) {
 }
 
 func DelConn(options *util.Options, systemName string) {
+	log.Println("DEBUG DelConn", systemName)
 	if !options.MonEnable {
 		return
 	}

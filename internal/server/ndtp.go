@@ -101,6 +101,7 @@ func (s *ndtpServer) receiveFromMaster() {
 		case <-s.exitChan:
 			return
 		case packet := <-s.masterOut:
+			monitoring.SendMetric(s.Options, s.name, monitoring.QueuedPkts, len(s.masterOut))
 			s.logger.Tracef("received packet from master: %v", packet)
 			err := s.send2terminal(packet)
 			if err != nil {

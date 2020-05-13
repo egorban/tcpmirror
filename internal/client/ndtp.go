@@ -365,11 +365,12 @@ func (c *Ndtp) connStatus() {
 	}
 	c.open = false
 	c.auth = false
+	monitoring.DelConn(c.Options, c.name)
 	c.reconnect()
+	monitoring.NewConn(c.Options, c.name)
 }
 
 func (c *Ndtp) reconnect() {
-	monitoring.DelConn(c.Options, c.name)
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
@@ -387,7 +388,6 @@ func (c *Ndtp) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					monitoring.NewConn(c.Options, c.name)
 					go c.chanReconStatus()
 					return
 				}

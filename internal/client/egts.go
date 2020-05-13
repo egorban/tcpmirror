@@ -318,11 +318,12 @@ func (c *Egts) conStatus() {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
 	c.open = false
+	monitoring.DelConn(c.Options, c.name)
 	c.reconnect()
+	monitoring.NewConn(c.Options, c.name)
 }
 
 func (c *Egts) reconnect() {
-	monitoring.DelConn(c.Options, c.name)
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -332,7 +333,6 @@ func (c *Egts) reconnect() {
 				c.conn = cE
 				c.open = true
 				c.logger.Println("reconnected")
-				monitoring.NewConn(c.Options, c.name)
 				go c.updateRecStatus()
 				return
 			}
