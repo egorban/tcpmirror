@@ -3,6 +3,9 @@ package monitoring
 import (
 	"log"
 	"math"
+	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,9 +29,11 @@ const (
 )
 
 var (
-	//	defaultTags  influx.Tags
+	host         string
 	connsSystems map[string]uint64
 	muConn       sync.Mutex
+	connsRedis   uint64
+	muConnRedis  sync.Mutex
 )
 
 func Init(address string, systems []util.System) (monEnable bool, monClient *influx.Client, err error) {
@@ -43,6 +48,7 @@ func Init(address string, systems []util.System) (monEnable bool, monClient *inf
 	}
 	connsSystems = initSystemsConns(systems)
 	monEnable = true
+	host = getHost()
 	go periodicMon(monClient)
 	return
 }
@@ -70,6 +76,10 @@ func periodicMon(monСlient *influx.Client) {
 			monСlient.WritePoint(p)
 		}
 		muConn.Unlock()
+		muConnRedis.Lock()
+		p := formPoint("redis", numConnections, connsRedis)
+		monСlient.WritePoint(p)
+		muConnRedis.Unlock()
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -106,6 +116,34 @@ func DelConn(options *util.Options, systemName string) {
 	options.MonСlient.WritePoint(p)
 }
 
+func NewRedisConn(options *util.Options) {
+	log.Println("DEBUG NewConnRedis")
+	if !options.MonEnable {
+		return
+	}
+	muConnRedis.Lock()
+	if connsRedis < math.MaxUint64 {
+		connsRedis++
+	}
+	muConnRedis.Unlock()
+	p := formPoint("redis", numConnections, connsRedis)
+	options.MonСlient.WritePoint(p)
+}
+
+func DelRedisConn(options *util.Options) {
+	log.Println("DEBUG DelConnRedis")
+	if !options.MonEnable {
+		return
+	}
+	muConnRedis.Lock()
+	if connsRedis > 0 {
+		connsRedis--
+	}
+	muConnRedis.Unlock()
+	p := formPoint("redis", numConnections, connsRedis)
+	options.MonСlient.WritePoint(p)
+}
+
 func SendMetric(options *util.Options, systemName string, metricName string, value interface{}) {
 	if !options.MonEnable {
 		return
@@ -115,7 +153,6 @@ func SendMetric(options *util.Options, systemName string, metricName string, val
 }
 
 func formPoint(systemName string, metricName string, value interface{}) *influx.Point {
-	host := "10_1_116_55"
 	tags := influx.Tags{
 		"host":     host,
 		"instance": util.Instance,
@@ -132,4 +169,23 @@ func formPoint(systemName string, metricName string, value interface{}) *influx.
 	}
 	p := influx.NewPoint(table, tags, values)
 	return p
+}
+
+func getHost() (ipStr string) {
+	ipStr = "localhost"
+	host, err := os.Hostname()
+	if err != nil {
+		return
+	}
+	addrs, err := net.LookupIP(host)
+	if err != nil {
+		return
+	}
+	for _, addr := range addrs {
+		if ipv4 := addr.To4(); ipv4 != nil {
+			logrus.Println("IPv4: ", ipv4)
+			ipStr = strings.ReplaceAll(ipv4.String(), ".", "_")
+		}
+	}
+	return
 }
