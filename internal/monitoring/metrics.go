@@ -111,7 +111,7 @@ func monRedisPkts(monClient *influx.Client) {
 				n = n + nNdtp
 			}
 		}
-		monСlient.WritePoint(formPoint(redisTable, unConfPkts, n))
+		monClient.WritePoint(formPoint(redisTable, unConfPkts, n))
 	}
 }
 
