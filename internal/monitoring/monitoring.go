@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -54,7 +55,7 @@ func Init(address string, systems []util.System, dbAddress string) (monEnable bo
 	monEnable = true
 	host = getHost()
 	go periodicMonConns(monClient, 10*time.Second)
-	go periodicMonRedisConns(monClient, 60*time.Second)
+	go periodicMonRedisConns(monClient, 60*time.Second, dbAddress)
 	go periodicMonRedisUnconfPkts(monClient, 60*time.Second, dbAddress)
 	return
 }
@@ -126,15 +127,22 @@ func periodicMonConns(monСlient *influx.Client, period time.Duration) {
 	}
 }
 
-func periodicMonRedisConns(monСlient *influx.Client, period time.Duration) {
+func periodicMonRedisConns(monСlient *influx.Client, period time.Duration, dbAddress string) {
+	_, dbPortStr, err := net.SplitHostPort(dbAddress)
+	if err != nil {
+		logrus.Println("periodicMonRedisConns error", err)
+		return
+	}
+	dbPort1, err := strconv.Atoi(dbPortStr)
+	dbPort := uint16(dbPort1)
 	for {
 		tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
-			return s.State == netstat.Established && s.LocalAddr.Port == 6379
+			return s.State == netstat.Established && s.LocalAddr.Port == dbPort
 		})
 		log.Println("DEBUG periodicMonRedisConns", tabs)
 		n := len(tabs)
 		if err == nil {
-			p := formPointRedis("redis", numConnections, n)
+			p := formPoint(redisTable, numConnections, n)
 			monСlient.WritePoint(p)
 		} else {
 			logrus.Println("error count redis connections", err)
@@ -150,7 +158,7 @@ func periodicMonRedisUnconfPkts(monСlient *influx.Client, period time.Duration,
 		if conn != nil {
 			nEgts, err := redis.Uint64(conn.Do("ZCOUNT", util.EgtsName, 0, util.Milliseconds()))
 			if err == nil {
-				p := formPointRedis("EGTS", unConfPkts, nEgts)
+				p := formPoint(redisTable, unConfPkts, nEgts)
 				monСlient.WritePoint(p)
 			}
 			log.Println("DEBUG periodicMonRedisUnconfPkts", nEgts)
@@ -166,7 +174,7 @@ func periodicMonRedisUnconfPkts(monСlient *influx.Client, period time.Duration,
 						nNdtp = nNdtp + n
 					}
 				}
-				p := formPointRedis("NDTP", unConfPkts, nNdtp)
+				p := formPoint(redisTable, unConfPkts, nNdtp)
 				monСlient.WritePoint(p)
 			}
 		}
@@ -184,25 +192,10 @@ func formPoint(systemName string, metricName string, value interface{}) *influx.
 	var table string
 	if systemName == TerminalName {
 		table = attTable
+	} else if systemName == redisTable {
+		table = redisTable
 	} else {
 		table = visTable
-		tags["system"] = systemName
-	}
-	values := influx.Values{
-		metricName: value,
-	}
-	p := influx.NewPoint(table, tags, values)
-	return p
-}
-
-func formPointRedis(systemName string, metricName string, value interface{}) *influx.Point {
-	host := "10_1_116_55"
-	tags := influx.Tags{
-		"host":     host,
-		"instance": util.Instance,
-	}
-	table := redisTable
-	if systemName != redisTable {
 		tags["system"] = systemName
 	}
 	values := influx.Values{
