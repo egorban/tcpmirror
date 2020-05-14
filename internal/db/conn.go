@@ -1,24 +1,30 @@
 package db
 
 import (
+	"time"
+
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 // Conn is a type for connection to DB
 type Conn redis.Conn
 
 // Connect creates connection to DB
-func Connect(dbAddress string) Conn {
-	return connect(dbAddress)
+func Connect(dbAddress string, options *util.Options) Conn {
+	c := connect(dbAddress)
+	monitoring.NewRedisConn(options)
+	return c
 }
 
 // Close closes connection to DB
-func Close(c Conn) {
+func Close(c Conn, options *util.Options) {
 	if err := c.Close(); err != nil {
 		logrus.Errorf("can't close connection to redis: %s", err)
 	}
+	monitoring.DelRedisConn(options)
 }
 
 func connect(dbAddress string) redis.Conn {

@@ -11,12 +11,12 @@ const DeleteChanSize = 10000
 
 // DeleteManager describes goroutine which manages deleting records from DB
 type DeleteManager struct {
-	Chan chan *ConfMsg
-	dbConn Conn
+	Chan     chan *ConfMsg
+	dbConn   Conn
 	toDelete map[string]uint64
-	deleted map[string]bool
-	logger *logrus.Entry
-	all uint64
+	deleted  map[string]bool
+	logger   *logrus.Entry
+	all      uint64
 }
 
 // ConfMsg is type of messages from client to delete manager
@@ -26,9 +26,9 @@ type ConfMsg struct {
 }
 
 // InitDeleteManager initializes delete manager
-func InitDeleteManager(db string, systemIds []byte) *DeleteManager {
+func InitDeleteManager(db string, systemIds []byte, options *util.Options) *DeleteManager {
 	Manager := new(DeleteManager)
-	Manager.dbConn = Connect(db)
+	Manager.dbConn = Connect(db, options)
 	Manager.Chan = make(chan *ConfMsg, DeleteChanSize)
 	Manager.logger = logrus.WithFields(logrus.Fields{"type": "delete_manager"})
 	Manager.logger.Tracef("deleteManager chan: %v", Manager.Chan)
@@ -50,7 +50,7 @@ func calcAll(systemIds []byte) uint64 {
 func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
-		case message := <- m.Chan:
+		case message := <-m.Chan:
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)

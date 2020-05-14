@@ -2,11 +2,12 @@ package test
 
 import (
 	"flag"
+	"testing"
+	"time"
+
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/server"
 	"github.com/sirupsen/logrus"
-	"testing"
-	"time"
 )
 
 func Test_serverStartOne(t *testing.T) {
@@ -16,7 +17,7 @@ func Test_serverStartOne(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -51,7 +52,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -87,7 +88,7 @@ func Test_serverStartTwo(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -123,7 +124,7 @@ func Test_serverStartThree(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -161,7 +162,7 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -200,7 +201,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -240,7 +241,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -282,7 +283,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -346,7 +347,7 @@ func Test_controlMessage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -373,7 +374,7 @@ func Test_serverStartAllOff(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -415,7 +416,7 @@ func Test_serverStartThreeNdtp3(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -454,7 +455,7 @@ func Test_serverStartThreeEgts3(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -494,7 +495,7 @@ func Test_serverStartThreeTerminals100(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
@@ -536,7 +537,7 @@ func Test_serverStartThreeNdtp3Egts3Terminals100(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	conn := db.Connect("localhost:9999")
+	conn := db.Connect("localhost:9999", nil)
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}

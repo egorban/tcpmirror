@@ -75,7 +75,7 @@ func (c *Egts) start() {
 
 func (c *Egts) clientLoop() {
 	monitoring.NewConn(c.Options, c.name)
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
 	if err != nil {
@@ -172,7 +172,7 @@ func (c *Egts) send(buf []byte) (err error) {
 }
 
 func (c *Egts) replyHandler() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	var buf []byte
 	for {
 		if c.open {
@@ -261,7 +261,7 @@ func (c *Egts) handleSuccessReply(dbConn db.Conn, crn uint16) (err error) {
 }
 
 func (c *Egts) old() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
 OLDLOOP:
@@ -350,7 +350,7 @@ func (c *Egts) updateRecStatus() {
 }
 
 func (c *Egts) closeDBConn(conn db.Conn) {
-	db.Close(conn)
+	db.Close(conn, c.Options)
 }
 
 func (c *Egts) getID(conn db.Conn) error {
