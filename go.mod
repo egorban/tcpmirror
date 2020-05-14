@@ -6,6 +6,7 @@ require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/ashirko/go-metrics v0.0.0-20180711071436-4bd4fea2d0a6 // indirect
 	github.com/ashirko/navprot v1.4.3
+	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5
 	github.com/egorban/egtsServ v1.0.1
 	github.com/egorban/go-metrics-graphite v1.0.0 // indirect
 	github.com/egorban/influx v0.0.0-20200513102543-ebd250b6de43

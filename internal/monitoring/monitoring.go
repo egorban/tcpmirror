@@ -144,31 +144,31 @@ func periodicMonRedisConns(monСlient *influx.Client, period time.Duration) {
 }
 
 func periodicMonRedisUnconfPkts(monСlient *influx.Client, period time.Duration, dbAddress string) {
-	var conn db.Conn
 	for {
-		if conn == nil {
-			conn = db.Connect(dbAddress)
-		}
-
-		nEgts, err := redis.Uint64(conn.Do("ZCOUNT", util.EgtsName))
-		if err == nil {
-			p := formPointRedis("EGTS", unConfPkts, nEgts)
-			monСlient.WritePoint(p)
-		}
-		log.Println("DEBUG periodicMonRedisUnconfPkts", nEgts)
-		sessions, err := redis.ByteSlices(conn.Do("KEYS", "session:*"))
-		if err == nil {
-			nNdtp := uint64(0)
-			prefix := []byte("session:")
-			for _, s := range sessions {
-				id := bytes.TrimPrefix(s, prefix)
-				n, err := redis.Uint64(conn.Do("ZCOUNT", id))
-				if err == nil {
-					nNdtp = nNdtp + n
-				}
+		conn := db.Connect(dbAddress)
+		defer db.Connect(dbAddress)
+		if conn != nil {
+			nEgts, err := redis.Uint64(conn.Do("ZCOUNT", util.EgtsName, 0, util.Milliseconds()))
+			if err == nil {
+				p := formPointRedis("EGTS", unConfPkts, nEgts)
+				monСlient.WritePoint(p)
 			}
-			p := formPoint("NDTP", unConfPkts, nNdtp)
-			monСlient.WritePoint(p)
+			log.Println("DEBUG periodicMonRedisUnconfPkts", nEgts)
+			sessions, err := redis.ByteSlices(conn.Do("KEYS", "session:*"))
+			if err == nil {
+				nNdtp := uint64(0)
+				prefix := []byte("session:")
+				for _, s := range sessions {
+
+					id := bytes.TrimPrefix(s, prefix)
+					n, err := redis.Uint64(conn.Do("ZCOUNT", id, 0, util.Milliseconds()))
+					if err == nil {
+						nNdtp = nNdtp + n
+					}
+				}
+				p := formPointRedis("NDTP", unConfPkts, nNdtp)
+				monСlient.WritePoint(p)
+			}
 		}
 
 		time.Sleep(period)
