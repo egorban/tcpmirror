@@ -9,23 +9,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/egorban/influx/pkg/influx"
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 )
 
 const (
 	TerminalName = "terminal"
 
-	visTable = "vis"
-	attTable = "source"
+	visTable   = "vis"
+	attTable   = "source"
+	redisTable = "redis"
 
-	SentBytes      = "sentBytes"
-	RcvdBytes      = "rcvdBytes"
-	SentPkts       = "sentPkts"
-	RcvdPkts       = "rcvdPkts"
-	QueuedPkts     = "queuedPkts"
-	numConnections = "numConnections"
+	SentBytes       = "sentBytes"
+	RcvdBytes       = "rcvdBytes"
+	SentPkts        = "sentPkts"
+	RcvdPkts        = "rcvdPkts"
+	QueuedPkts      = "queuedPkts"
+	numConnections  = "numConnections"
+	unconfirmedPkts = "unconfirmedPkts"
 )
 
 var (
@@ -33,10 +37,11 @@ var (
 	connsSystems map[string]uint64
 	muConn       sync.Mutex
 	connsRedis   uint64
-	muConnRedis  sync.Mutex
+	terminals    map[int]uint64
+	muRedis      sync.Mutex
 )
 
-func Init(address string, systems []util.System) (monEnable bool, monClient *influx.Client, err error) {
+func Init(address string, systems []util.System, dbAddress string) (monEnable bool, monClient *influx.Client, err error) {
 	if address == "" {
 		logrus.Println("start without sending metrics to influx")
 		return
@@ -49,7 +54,7 @@ func Init(address string, systems []util.System) (monEnable bool, monClient *inf
 	connsSystems = initSystemsConns(systems)
 	monEnable = true
 	host = getHost()
-	go periodicMon(monClient)
+	go periodicMon(monClient, dbAddress)
 	return
 }
 
@@ -67,7 +72,9 @@ func initSystemsConns(systems []util.System) map[string]uint64 {
 	return connsSystems
 }
 
-func periodicMon(monСlient *influx.Client) {
+func periodicMon(monСlient *influx.Client, dbAddress string) {
+	conn := db.Connect(dbAddress)
+	defer conn.Close()
 	for {
 		muConn.Lock()
 		for systemName, numConn := range connsSystems {
@@ -76,10 +83,28 @@ func periodicMon(monСlient *influx.Client) {
 			monСlient.WritePoint(p)
 		}
 		muConn.Unlock()
-		muConnRedis.Lock()
-		p := formPoint("redis", numConnections, connsRedis)
+
+		p := formRedisPoint(redisTable, numConnections, connsRedis)
 		monСlient.WritePoint(p)
-		muConnRedis.Unlock()
+
+		if conn != nil {
+			sessions, _ := redis.ByteSlices(conn.Do("KEYS", "session:*"))
+			for _, s := range sessions {
+				id := strings.TrimPrefix(string(s[:]), "sessions:")
+				n, _ := redis.Uint64(conn.Do("ZCOUNT", id, 0, util.Milliseconds()))
+				p := formRedisPoint("NDTP", unconfirmedPkts, n)
+				monСlient.WritePoint(p)
+			}
+			n, err := redis.Uint64(conn.Do("ZCOUNT", util.EgtsName, 0, util.Milliseconds()))
+			if err == nil {
+				p := formRedisPoint("NDTP", unconfirmedPkts, n)
+				monСlient.WritePoint(p)
+			}
+			p = formRedisPoint("EGTS", unconfirmedPkts, n)
+			monСlient.WritePoint(p)
+			muRedis.Unlock()
+		}
+
 		time.Sleep(10 * time.Second)
 	}
 }
@@ -116,34 +141,6 @@ func DelConn(options *util.Options, systemName string) {
 	options.MonСlient.WritePoint(p)
 }
 
-func NewRedisConn(options *util.Options) {
-	log.Println("DEBUG NewConnRedis")
-	if !options.MonEnable {
-		return
-	}
-	muConnRedis.Lock()
-	if connsRedis < math.MaxUint64 {
-		connsRedis++
-	}
-	muConnRedis.Unlock()
-	p := formPoint("redis", numConnections, connsRedis)
-	options.MonСlient.WritePoint(p)
-}
-
-func DelRedisConn(options *util.Options) {
-	log.Println("DEBUG DelConnRedis")
-	if !options.MonEnable {
-		return
-	}
-	muConnRedis.Lock()
-	if connsRedis > 0 {
-		connsRedis--
-	}
-	muConnRedis.Unlock()
-	p := formPoint("redis", numConnections, connsRedis)
-	options.MonСlient.WritePoint(p)
-}
-
 func SendMetric(options *util.Options, systemName string, metricName string, value interface{}) {
 	if !options.MonEnable {
 		return
@@ -168,6 +165,21 @@ func formPoint(systemName string, metricName string, value interface{}) *influx.
 		metricName: value,
 	}
 	p := influx.NewPoint(table, tags, values)
+	return p
+}
+
+func formRedisPoint(systemName string, metricName string, value interface{}) *influx.Point {
+	tags := influx.Tags{
+		"host":     host,
+		"instance": util.Instance,
+	}
+	if systemName != redisTable {
+		tags["system"] = systemName
+	}
+	values := influx.Values{
+		metricName: value,
+	}
+	p := influx.NewPoint(redisTable, tags, values)
 	return p
 }
 

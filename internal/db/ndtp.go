@@ -1,10 +1,11 @@
 package db
 
 import (
+	"strconv"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 // WriteNDTPid maps ClientNdtpID to ServerNdtpID
