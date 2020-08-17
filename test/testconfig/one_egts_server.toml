@@ -1,0 +1,26 @@
+# listen address
+listen_address = "localhost:7000"
+
+# DB server address
+db_address = "localhost:9999"
+
+#listen protocol
+listen_protocol = "EGTS"
+
+#log level
+log_level = "trace"
+
+# list of data consumers
+consumers_list = ["vis1"]
+
+# test mode provides more detailed logs but reduces system performance
+test_mode = true
+
+#key expire sec
+key_ex = 20
+
+[vis1]
+id = 2
+address = "localhost:7001"
+protocol = "EGTS"
+master = true
