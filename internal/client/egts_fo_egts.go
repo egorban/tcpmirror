@@ -2,62 +2,60 @@ package client
 
 import (
 	"net"
-	"sync"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/egorban/navprot/pkg/egts"
-	"github.com/sirupsen/logrus"
 )
 
 // EgtsChanSize defines size of EGTS client input chanel buffer
-const EgtsChanSize = 10000
+//const EgtsChanSize = 10000
 
 // Egts describes EGTS client
-type Egts struct {
-	Input  chan []byte
-	dbConn db.Conn
-	*info
-	*egtsSession
-	*connection
-	confChan chan *db.ConfMsg
-}
+// type Egts struct {
+// 	Input  chan []byte
+// 	dbConn db.Conn
+// 	*info
+// 	*egtsSession
+// 	*connection
+// 	confChan chan *db.ConfMsg
+// }
 
-type egtsSession struct {
-	egtsMessageID uint16
-	egtsRecID     uint16
-	mu            sync.Mutex
-}
+// type egtsSession struct {
+// 	egtsMessageID uint16
+// 	egtsRecID     uint16
+// 	mu            sync.Mutex
+// }
 
 // NewEgts creates new Egts client
-func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) *Egts {
-	c := new(Egts)
-	c.info = new(info)
-	c.egtsSession = new(egtsSession)
-	c.connection = new(connection)
-	c.id = sys.ID
-	c.name = sys.Name
-	c.address = sys.Address
-	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
-	c.Options = options
-	c.Input = make(chan []byte, EgtsChanSize)
-	c.confChan = confChan
-	return c
-}
+// func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) *Egts {
+// 	c := new(Egts)
+// 	c.info = new(info)
+// 	c.egtsSession = new(egtsSession)
+// 	c.connection = new(connection)
+// 	c.id = sys.ID
+// 	c.name = sys.Name
+// 	c.address = sys.Address
+// 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
+// 	c.Options = options
+// 	c.Input = make(chan []byte, EgtsChanSize)
+// 	c.confChan = confChan
+// 	return c
+// }
 
 // InputChannel implements method of Client interface
-func (c *Egts) InputChannel() chan []byte {
-	return c.Input
-}
+// func (c *Egts) InputChannel() chan []byte {
+// 	return c.Input
+// }
 
-// OutputChannel implements method of Client interface
-func (c *Egts) OutputChannel() chan []byte {
-	return nil
-}
+// // OutputChannel implements method of Client interface
+// func (c *Egts) OutputChannel() chan []byte {
+// 	return nil
+// }
 
-func (c *Egts) start() {
+func (c *Egts) start_Egts() {
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
@@ -96,22 +94,22 @@ func (c *Egts) clientLoop_Egts() {
 				records = c.processRecord(dbConn, record, records)
 				countRec++
 				if countRec == 3 {
-					buf = c.formPacket(records)
+					buf, _ = c.formPacket(records)
 					countPack++
-					records = []byte(nil)
+					records = [][]byte(nil)
 					countRec = 0
 				}
 				if countPack == 10 {
 					err := c.send(buf)
 					if err == nil {
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						//monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
 					}
 					buf = []byte(nil)
 					countPack = 0
 				}
 			case <-sendTicker.C:
 				if (countRec > 0) && (countRec < 3) {
-					buf = c.formPacket(records)
+					buf, _ = c.formPacket(records)
 					countPack++
 					records = [][]byte(nil)
 					countRec = 0
@@ -119,7 +117,7 @@ func (c *Egts) clientLoop_Egts() {
 				if (countPack > 0) && (countPack <= 10) {
 					err := c.send(buf)
 					if err == nil {
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						//	monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
 					}
 					buf = []byte(nil)
 					countPack = 0
@@ -152,7 +150,7 @@ func (c *Egts) processRecord(dbConn db.Conn, record []byte, records [][]byte) []
 	return records
 }
 
-func formPacket(recordsBin [][]byte) {
+func (c *Egts) formPacket(recordsBin [][]byte) ([]byte, error) {
 	var records []*egts.Record
 	for _, recBin := range recordsBin {
 		record := &egts.Record{
@@ -166,5 +164,5 @@ func formPacket(recordsBin [][]byte) {
 		Records: records,
 		Data:    nil,
 	}
-	packetData.Form()
+	return packetData.Form()
 }

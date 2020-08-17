@@ -1,11 +1,12 @@
 package util
 
 import (
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/sirupsen/logrus"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/egorban/navprot/pkg/ndtp"
+	"github.com/sirupsen/logrus"
 )
 
 // PrintPacket prints packet in []byte{} format

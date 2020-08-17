@@ -2,11 +2,12 @@ package test
 
 import (
 	"flag"
+	"testing"
+	"time"
+
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/server"
 	"github.com/sirupsen/logrus"
-	"testing"
-	"time"
 )
 
 func Test_serverStartOne(t *testing.T) {
@@ -42,6 +43,41 @@ func Test_serverStartOne(t *testing.T) {
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
 	checkKeyNum(t, res, expected)
+}
+
+func Test_serverEgtsStartOne(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/one_egts_server.toml")
+	if err != nil {
+		t.Error(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Error(err)
+	}
+	numOfPackets := 1
+	//	numOfNdtpServers := 1
+	//	numOfTerminals := 1
+	go mockTerminal_Egts(t, "localhost:7000", numOfPackets)
+	go mockEgtsServer(t, "localhost:7001")
+	go server.Start()
+	time.Sleep(5 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Error(err)
+	}
+	//expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
+	logrus.Println("start 1 test", res)
+	//	checkKeyNum(t, res, expected)
+	time.Sleep(20 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Error(err)
+	}
+	//	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
+	logrus.Println("start 2 test", res)
+	//	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartTwoTerminals(t *testing.T) {

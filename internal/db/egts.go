@@ -1,10 +1,11 @@
 package db
 
 import (
+	"strconv"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 // WriteEgtsID maps EgtsID to NdtpID
@@ -82,5 +83,12 @@ func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
 
 func write2EGTS(c redis.Conn, time int64, key []byte) error {
 	_, err := c.Do("ZADD", util.EgtsName, time, key)
+	return err
+}
+
+func write2Egts_Egts(c redis.Conn, OID int, time int64, sdata []byte, logger *logrus.Entry) error {
+	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v", terminalID, time, sdata)
+	_, err := c.Do("ZADD", OID, time, sdata)
+	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v; res: %v; err: %v", terminalID, time, sdata, res, err)
 	return err
 }

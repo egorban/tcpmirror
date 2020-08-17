@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strconv"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 const systemBytes = 4
-
 
 var (
 	// SysNumber is a number of clients
@@ -33,6 +33,25 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 		return
 	}
 	err = write2Ndtp(c, terminalID, time, sdata, logger)
+	if err != nil {
+		return
+	}
+	err = write2EGTS(c, time, sdata[:util.PacketStart])
+	return
+}
+
+// Write2DB writes packet with metadata to DB
+func Write2DB_Egts(pool *Pool, OID int, sdata []byte, logger *logrus.Entry) (err error) {
+	//	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
+	time := util.Milliseconds()
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	//	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStart])
+	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
+	if err != nil {
+		return
+	}
+	err = write2Egts_Egts(c, OID, time, sdata, logger)
 	if err != nil {
 		return
 	}

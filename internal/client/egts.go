@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ashirko/navprot/pkg/egts"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/egorban/navprot/pkg/egts"
 	"github.com/sirupsen/logrus"
 )
 

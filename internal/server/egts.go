@@ -140,7 +140,7 @@ func (s *egtsServer) processPacket(packet egts.Packet, ansPID uint16, ansRID uin
 			OID:    rec.ID,
 			PackID: packet.ID,
 			RecID:  rec.RecNum,
-			Record: rec.recBin, //record из которой потом формировать пакет (заголовок записи + подзаписи)
+			Record: rec.RecBin, //record из которой потом формировать пакет (заголовок записи + подзаписи)
 		}
 		s.recordNum++
 		sdata := util.Serialize_Egts(data)
