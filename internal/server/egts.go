@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -12,20 +13,17 @@ import (
 )
 
 type egtsServer struct {
-	conn net.Conn
-	//terminalID int
-	//sessionID  int
+	conn     net.Conn
 	logger   *logrus.Entry
 	pool     *db.Pool
 	exitChan chan struct{}
 	*util.Options
-	//masterIn    chan []byte
-	//masterOut   chan []byte
-	//ndtpClients []client.Client
 	channels  []chan []byte
-	recordNum uint32
 	confChan  chan *db.ConfMsg
 	name      string
+	ansPID    uint16
+	ansRID    uint16
+	sessionID uint64
 }
 
 func startEgtsServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -54,6 +52,10 @@ func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 		logrus.Errorf("error during initialization new egts server: %s", err)
 		return
 	}
+	if err = s.setSessionID(); err != nil {
+		err = fmt.Errorf("setSessionID error: %s", err)
+		return
+	}
 	s.logger.Tracef("newEgtsServer: %+v", s)
 	go s.removeExpired()
 	s.serverLoop()
@@ -68,9 +70,6 @@ func newEgtsServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		pool:     pool,
 		exitChan: exitChan,
 		Options:  options,
-		//masterIn:    master.InputChannel(),
-		//masterOut:   master.OutputChannel(),
-		//ndtpClients: append(clients, master),
 		channels: channels,
 		name:     monitoring.TerminalName,
 	}, nil
@@ -79,8 +78,6 @@ func newEgtsServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 func (s *egtsServer) serverLoop() {
 	var buf []byte
 	var b [defaultBufferSize]byte
-	var ansPID uint16
-	var ansRID uint16
 	for {
 		s.logger.Debug("start reading from client")
 		if err := s.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
@@ -93,22 +90,21 @@ func (s *egtsServer) serverLoop() {
 		//todo remove after testing
 		//	util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
-			s.logger.Info("close ndtpServer: ", err)
+			s.logger.Info("close egtsServer: ", err)
 			close(s.exitChan)
 			return
 		}
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var numPacks uint
-		buf, numPacks = s.processBuf(buf, ansPID, ansRID)
+		buf, numPacks = s.processBuf(buf)
 		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, numPacks)
 	}
 }
 
-func (s *egtsServer) processBuf(buf []byte, ansPID uint16, ansRID uint16) ([]byte, uint) {
+func (s *egtsServer) processBuf(buf []byte) ([]byte, uint) {
 	countPack := uint(0)
 	for len(buf) > 0 {
-		//packet, rest, service, _, nphID, err := ndtp.SimpleParse(buf)
 		var packet egts.Packet
 		rest, err := packet.Parse(buf)
 		//s.logger.Tracef("service: %d, nphID: %d, packet: %v, err: %v", service, nphID, packet, err)
@@ -122,7 +118,7 @@ func (s *egtsServer) processBuf(buf []byte, ansPID uint16, ansRID uint16) ([]byt
 		}
 		buf = rest
 		if packet.Type == egts.EgtsPtAppdata {
-			err = s.processPacket(packet, ansPID, ansRID)
+			err = s.processPacket(packet)
 			if err != nil {
 				s.logger.Warningf("can't process message from client: %s", err)
 				return []byte(nil), countPack
@@ -133,30 +129,33 @@ func (s *egtsServer) processBuf(buf []byte, ansPID uint16, ansRID uint16) ([]byt
 	return buf, countPack
 }
 
-func (s *egtsServer) processPacket(packet egts.Packet, ansPID uint16, ansRID uint16) (err error) {
+func (s *egtsServer) processPacket(packet egts.Packet) (err error) {
 	var recNums []uint16
 	for _, rec := range packet.Records {
-		data := util.Data_Egts{
-			OID:    rec.ID,
-			PackID: packet.ID,
-			RecID:  rec.RecNum,
-			Record: rec.RecBin, //record из которой потом формировать пакет (заголовок записи + подзаписи)
+		data := util.DataEgts{
+			OID:       rec.ID,
+			PackID:    packet.ID,
+			RecID:     rec.RecNum,
+			SessionID: s.sessionID,
+			Record:    rec.RecBin,
 		}
-		s.recordNum++
-		sdata := util.Serialize_Egts(data)
-		err = db.Write2DB_Egts(s.pool, int(data.OID), sdata, s.logger)
+		sdata := util.Serialize4Egts(data)
+		err = db.Write2DB4Egts(s.pool, int(data.OID), sdata, s.logger)
+		fmt.Println("PACKET WAS WROTE")
 		if err != nil {
 			return
 		}
 		s.send2Channels(sdata)
 		recNums = append(recNums, rec.RecNum)
 	}
-	reply, _ := makeReply(packet.ID, recNums, ansPID, ansRID)
+	reply, err, ansPID, ansRID := makeReply(packet.ID, recNums, s.ansPID, s.ansRID)
+	s.ansPID = ansPID
+	s.ansRID = ansRID
 	err = s.send2terminal(reply)
 	return
 }
 
-func makeReply(packetID uint16, recNums []uint16, ansPID uint16, ansRID uint16) ([]byte, error) {
+func makeReply(packetID uint16, recNums []uint16, ansPID uint16, ansRID uint16) ([]byte, error, uint16, uint16) {
 	subRecords := make([]*egts.SubRecord, 0, 1)
 	for _, num := range recNums {
 		subData := egts.Confirmation{
@@ -185,14 +184,17 @@ func makeReply(packetID uint16, recNums []uint16, ansPID uint16, ansRID uint16) 
 		Records: []*egts.Record{&rec},
 		Data:    &data,
 	}
-	return packetData.Form()
+	ansPID++
+	ansRID++
+	pack, err := packetData.Form()
+	return pack, err, ansPID, ansRID
 }
 
 func (s *egtsServer) send2terminal(packet []byte) (err error) {
-	util.PrintPacket(s.logger, "send to terminal:", packet)
+	//util.PrintPacket(s.logger, "send to terminal:", packet)
 	err = s.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	//todo remove after testing
-	util.PrintPacketForDebugging(s.logger, "parsed packet to client:", packet)
+	//util.PrintPacketForDebugging(s.logger, "parsed packet to client:", packet)
 	if err != nil {
 		return
 	}
@@ -229,8 +231,13 @@ func (s *egtsServer) removeExpired() {
 		case <-tickerEx.C:
 			err := db.RemoveExpired(s.pool, 1, s.logger)
 			if err != nil {
-				s.logger.Errorf("can't remove expired data ndtp: %s", err)
+				s.logger.Errorf("can't remove expired data egts: %s", err)
 			}
 		}
 	}
+}
+
+func (s *egtsServer) setSessionID() (err error) {
+	s.sessionID, err = db.NewSessionID4Egts(s.pool, s.logger)
+	return
 }

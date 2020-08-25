@@ -147,7 +147,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		return
 	}
 	if service == ndtp.NphSrvNavdata {
-		if db.IsOldData(c.pool, message, c.logger) {
+		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 			return
 		}
 		nphID, err := c.getNphID()

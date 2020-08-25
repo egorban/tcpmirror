@@ -144,7 +144,7 @@ func (c *Ndtp) sendFirstMessage() error {
 }
 
 func (c *Ndtp) handleMessage(message []byte) {
-	if db.IsOldData(c.pool, message, c.logger) {
+	if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 		return
 	}
 	data := util.Deserialize(message)

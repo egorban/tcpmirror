@@ -2,13 +2,15 @@ package util
 
 import "encoding/binary"
 
-// PacketStart defines number of byte with metadata in front of binary packet.
+// PacketStart defines number of byte with metadata in front of binary packet for NDTP server.
 // Structure of serialized data is 'PacketStart' bytes with metadata, then binary packet.
 const PacketStart = 10
 
-const PacketStart_Egts = 8
+// PacketStartEgts defines number of byte with metadata in front of binary packet for EGTS server.
+// Structure of serialized data is 'PacketStart' bytes with metadata, then binary packet.
+const PacketStartEgts = 16
 
-// Data defines deserialized data
+// Data defines deserialized data for NDTP server
 type Data struct {
 	TerminalID uint32
 	SessionID  uint16
@@ -17,15 +19,17 @@ type Data struct {
 	ID         []byte
 }
 
-type Data_Egts struct {
-	OID    uint32
-	PackID uint16
-	RecID  uint16
-	Record []byte
-	ID     []byte
+// DataEgts defines deserialized data for EGTS server
+type DataEgts struct {
+	OID       uint32
+	PackID    uint16
+	RecID     uint16
+	SessionID uint64
+	Record    []byte
+	ID        []byte
 }
 
-// Serialize is using for serializing data
+// Serialize is using for NDTP server serializing data
 func Serialize(data Data) []byte {
 	bin := make([]byte, PacketStart)
 	binary.LittleEndian.PutUint32(bin[:4], data.TerminalID)
@@ -34,7 +38,7 @@ func Serialize(data Data) []byte {
 	return append(bin, data.Packet...)
 }
 
-// Deserialize is using for deserializing data
+// Deserialize is using for NDTP server deserializing data
 func Deserialize(bin []byte) Data {
 	data := Data{}
 	data.TerminalID = binary.LittleEndian.Uint32(bin[0:4])
@@ -45,22 +49,22 @@ func Deserialize(bin []byte) Data {
 	return data
 }
 
-func Serialize_Egts(data Data_Egts) []byte {
-	bin := make([]byte, PacketStart_Egts)
+// Serialize4Egts is using for EGTS server serializing data
+func Serialize4Egts(data DataEgts) []byte {
+	bin := make([]byte, PacketStartEgts)
 	binary.LittleEndian.PutUint32(bin[:4], data.OID)
-	binary.LittleEndian.PutUint16(bin[4:6], data.PackID)
-	binary.LittleEndian.PutUint16(bin[6:], data.RecID)
+	binary.LittleEndian.PutUint64(bin[4:12], data.SessionID)
+	binary.LittleEndian.PutUint16(bin[12:14], data.PackID)
+	binary.LittleEndian.PutUint16(bin[14:], data.RecID)
 	return append(bin, data.Record...)
 }
 
-// Deserialize is using for deserializing data
-func Deserialize_Egts(bin []byte) Data_Egts {
-	data := Data_Egts{}
-	data.OID = binary.LittleEndian.Uint32(bin[0:4])
-	//data.SessionID = binary.LittleEndian.Uint16(bin[4:6])
-	//data.PacketNum = binary.LittleEndian.Uint32(bin[6:10])
-	data.ID = bin[:PacketStart_Egts]
-	data.Record = bin[PacketStart_Egts:]
+// Deserialize4Egts is using for EGTS server deserializing data
+func Deserialize4Egts(bin []byte) DataEgts {
+	data := DataEgts{}
+	data.OID = binary.LittleEndian.Uint32(bin[:4])
+	data.ID = bin[:PacketStartEgts]
+	data.Record = bin[PacketStartEgts:]
 	return data
 }
 

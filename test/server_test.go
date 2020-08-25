@@ -45,41 +45,6 @@ func Test_serverStartOne(t *testing.T) {
 	checkKeyNum(t, res, expected)
 }
 
-func Test_serverEgtsStartOne(t *testing.T) {
-	logrus.SetReportCaller(true)
-	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/one_egts_server.toml")
-	if err != nil {
-		t.Error(err)
-	}
-	conn := db.Connect("localhost:9999")
-	if err := clearDB(conn); err != nil {
-		t.Error(err)
-	}
-	numOfPackets := 1
-	//	numOfNdtpServers := 1
-	//	numOfTerminals := 1
-	go mockTerminal_Egts(t, "localhost:7000", numOfPackets)
-	go mockEgtsServer(t, "localhost:7001")
-	go server.Start()
-	time.Sleep(5 * time.Second)
-	res, err := getAllKeys(conn)
-	if err != nil {
-		t.Error(err)
-	}
-	//expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
-	logrus.Println("start 1 test", res)
-	//	checkKeyNum(t, res, expected)
-	time.Sleep(20 * time.Second)
-	res, err = getAllKeys(conn)
-	if err != nil {
-		t.Error(err)
-	}
-	//	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
-	logrus.Println("start 2 test", res)
-	//	checkKeyNum(t, res, expected)
-}
-
 func Test_serverStartTwoTerminals(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
@@ -373,6 +338,10 @@ func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
 		t.Errorf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
+
+	// for _, k := range res {
+	// 	fmt.Printf("KATYA KEY: %s\n", k)
+	// }
 }
 
 func Test_controlMessage(t *testing.T) {

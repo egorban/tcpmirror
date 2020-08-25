@@ -1,7 +1,8 @@
 package client
 
 import (
-	"net"
+	"encoding/binary"
+	"fmt"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -10,67 +11,7 @@ import (
 	"github.com/egorban/navprot/pkg/egts"
 )
 
-// EgtsChanSize defines size of EGTS client input chanel buffer
-//const EgtsChanSize = 10000
-
-// Egts describes EGTS client
-// type Egts struct {
-// 	Input  chan []byte
-// 	dbConn db.Conn
-// 	*info
-// 	*egtsSession
-// 	*connection
-// 	confChan chan *db.ConfMsg
-// }
-
-// type egtsSession struct {
-// 	egtsMessageID uint16
-// 	egtsRecID     uint16
-// 	mu            sync.Mutex
-// }
-
-// NewEgts creates new Egts client
-// func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) *Egts {
-// 	c := new(Egts)
-// 	c.info = new(info)
-// 	c.egtsSession = new(egtsSession)
-// 	c.connection = new(connection)
-// 	c.id = sys.ID
-// 	c.name = sys.Name
-// 	c.address = sys.Address
-// 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
-// 	c.Options = options
-// 	c.Input = make(chan []byte, EgtsChanSize)
-// 	c.confChan = confChan
-// 	return c
-// }
-
-// InputChannel implements method of Client interface
-// func (c *Egts) InputChannel() chan []byte {
-// 	return c.Input
-// }
-
-// // OutputChannel implements method of Client interface
-// func (c *Egts) OutputChannel() chan []byte {
-// 	return nil
-// }
-
-func (c *Egts) start_Egts() {
-	c.logger.Traceln("start")
-	conn, err := net.Dial("tcp", c.address)
-	if err != nil {
-		c.logger.Errorf("error while connecting to EGTS server: %s", err)
-		c.reconnect()
-	} else {
-		c.conn = conn
-		c.open = true
-	}
-	go c.old()
-	go c.replyHandler()
-	c.clientLoop_Egts()
-}
-
-func (c *Egts) clientLoop_Egts() {
+func (c *Egts) clientLoop4Egts() {
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -79,22 +20,23 @@ func (c *Egts) clientLoop_Egts() {
 	}
 	var buf []byte
 	var records [][]byte
-	countRec := 0
-	countPack := 0
+	var countRec int
+	var countPack int
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	defer sendTicker.Stop()
 	for {
 		if c.open {
 			select {
-			case record := <-c.Input:
+			case message := <-c.Input:
+				fmt.Println("KATYA INPUT MSG for", c.id)
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
-				if db.CheckOldData(dbConn, record, c.logger) {
+				if db.CheckOldData(dbConn, message[:util.PacketStartEgts], c.logger) {
 					continue
 				}
-				records = c.processRecord(dbConn, record, records)
+				records = c.processMessage4Egts(dbConn, message, records)
 				countRec++
 				if countRec == 3 {
-					buf, _ = c.formPacket(records)
+					buf, _ = c.formPacketEgts(records, buf)
 					countPack++
 					records = [][]byte(nil)
 					countRec = 0
@@ -109,7 +51,7 @@ func (c *Egts) clientLoop_Egts() {
 				}
 			case <-sendTicker.C:
 				if (countRec > 0) && (countRec < 3) {
-					buf, _ = c.formPacket(records)
+					buf, _ = c.formPacketEgts(records, buf)
 					countPack++
 					records = [][]byte(nil)
 					countRec = 0
@@ -133,15 +75,17 @@ func (c *Egts) clientLoop_Egts() {
 	}
 }
 
-func (c *Egts) processRecord(dbConn db.Conn, record []byte, records [][]byte) [][]byte {
-	util.PrintPacket(c.logger, "serialized data: ", record)
-	data := util.Deserialize_Egts(record)
-	c.logger.Tracef("data: %+v", data)
-	_, recID, err := c.ids(dbConn)
+func (c *Egts) processMessage4Egts(dbConn db.Conn, message []byte, records [][]byte) [][]byte {
+	//util.PrintPacket(c.logger, "serialized data: ", message)
+	data := util.Deserialize4Egts(message)
+	//c.logger.Tracef("data: %+v", data)
+	recID, err := c.idRec(dbConn)
 	if err != nil {
 		c.logger.Errorf("can't get ids: %s", err)
 		return records
 	}
+	record := changeRecNum(recID, data.Record)
+	fmt.Println("KATYA RECORD TO SEND", c.id, record)
 	records = append(records, record)
 	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
 	if err != nil {
@@ -150,7 +94,32 @@ func (c *Egts) processRecord(dbConn db.Conn, record []byte, records [][]byte) []
 	return records
 }
 
-func (c *Egts) formPacket(recordsBin [][]byte) ([]byte, error) {
+func changeRecNum(recID uint16, record []byte) []byte {
+	changedRec := make([]byte, len(record))
+	copy(changedRec, record)
+	binary.LittleEndian.PutUint16(changedRec[2:4], recID)
+	return changedRec
+}
+
+func (c *Egts) idRec(conn db.Conn) (uint16, error) {
+	c.mu.Lock()
+	egtsRecID := c.egtsRecID
+	c.egtsRecID++
+	err := db.SetEgtsID(conn, c.id, c.egtsRecID)
+	c.mu.Unlock()
+	return egtsRecID, err
+}
+
+func (c *Egts) idPack() uint16 {
+	c.mu.Lock()
+	egtsMessageID := c.egtsMessageID
+	c.egtsMessageID++
+	c.mu.Unlock()
+	return egtsMessageID
+}
+
+func (c *Egts) formPacketEgts(recordsBin [][]byte, buf []byte) ([]byte, error) {
+	id := c.idPack()
 	var records []*egts.Record
 	for _, recBin := range recordsBin {
 		record := &egts.Record{
@@ -160,9 +129,63 @@ func (c *Egts) formPacket(recordsBin [][]byte) ([]byte, error) {
 	}
 	packetData := egts.Packet{
 		Type:    egts.EgtsPtAppdata,
-		ID:      0,
+		ID:      id,
 		Records: records,
 		Data:    nil,
 	}
-	return packetData.Form()
+	pack, _ := packetData.Form()
+	buf = append(buf, pack...)
+	return buf, nil
+}
+
+func (c *Egts) old4Egts() {
+	dbConn := db.Connect(c.DB)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+	defer ticker.Stop()
+OLDLOOP:
+	for {
+		if c.open {
+			<-ticker.C
+			c.logger.Debugf("start checking old data")
+			messages, err := db.OldPacketsEGTS(dbConn, c.id, util.PacketStartEgts)
+			if err != nil {
+				c.logger.Warningf("can't get old packets: %s", err)
+				continue
+			}
+			c.logger.Debugf("get %d old packets", len(messages))
+			var buf []byte
+			var records [][]byte
+			var countRec int
+			var countPack int
+			for _, msg := range messages {
+				records = c.processMessage4Egts(dbConn, msg, records)
+				countRec++
+				if countRec == 3 {
+					buf, _ = c.formPacketEgts(records, buf)
+					countPack++
+					records = [][]byte(nil)
+					countRec = 0
+				}
+				if countPack > 9 {
+					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
+					if err = c.send(buf); err != nil {
+						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+						continue OLDLOOP
+					}
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+					countPack = 0
+					buf = []byte(nil)
+				}
+			}
+			if len(buf) > 0 {
+				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
+				err := c.send(buf)
+				if err == nil {
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+				}
+			}
+		} else {
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+		}
+	}
 }

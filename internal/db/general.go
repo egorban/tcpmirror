@@ -41,21 +41,21 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 }
 
 // Write2DB writes packet with metadata to DB
-func Write2DB_Egts(pool *Pool, OID int, sdata []byte, logger *logrus.Entry) (err error) {
+func Write2DB4Egts(pool *Pool, OID int, sdata []byte, logger *logrus.Entry) (err error) {
 	//	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
 	//	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStart])
-	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
+	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStartEgts])
 	if err != nil {
 		return
 	}
-	err = write2Egts_Egts(c, OID, time, sdata, logger)
+	err = write2Egts4Egts(c, OID, time, sdata, logger)
 	if err != nil {
 		return
 	}
-	err = write2EGTS(c, time, sdata[:util.PacketStart])
+	err = write2EGTS(c, time, sdata[:util.PacketStartEgts])
 	return
 }
 
@@ -89,17 +89,34 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
-// IsOldData checks if message is old and should not be sending again
-func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
+// NewSessionID4Egts returns new ID of sessions between tcpmirror and egts source
+func NewSessionID4Egts(pool *Pool, logger *logrus.Entry) (uint64, error) {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	return CheckOldData(c, message, logger)
+	key := "session:egts"
+	id, err := redis.Uint64(c.Do("GET", key))
+	if err != nil {
+		if err == redis.ErrNil {
+			id = 0
+		} else {
+			return 0, err
+		}
+	}
+	_, err = c.Do("SET", key, id+1)
+	return id, err
+}
+
+// IsOldData checks if message is old and should not be sending again
+func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	return CheckOldData(c, meta, logger)
 }
 
 // CheckOldData checks if message is old and should not be sending again
-func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
-	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
-	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, message[:util.PacketStart], val)
+func CheckOldData(conn redis.Conn, meta []byte, logger *logrus.Entry) bool {
+	val, err := redis.Bytes(conn.Do("GET", meta))
+	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, meta, val)
 	if err == redis.ErrNil {
 		logger.Tracef("isOldData detected empty result: %v;", val)
 		return true
@@ -110,7 +127,7 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	min := uint64(util.Milliseconds() - PeriodOldData)
-	logger.Tracef("isOldData key: %v; time: %d; now: %d", message[:util.PacketStart], time, min)
+	logger.Tracef("isOldData key: %v; time: %d; now: %d", meta, time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
 		return true
@@ -121,6 +138,7 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)
+	fmt.Println("KEY 1", key)
 	_, err := c.Do("SET", key, val, "ex", util.Sec3Days)
 	return err
 }
@@ -153,7 +171,7 @@ func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error
 	return
 }
 
-func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
+func findPacket(conn redis.Conn, key []byte, packetStart int) (pack []byte, err error) {
 	val, err := redis.Bytes(conn.Do("GET", key))
 	logrus.Tracef("findPack key = %v, val = %v, err = %v", key, val, err)
 	if err != nil {
@@ -173,7 +191,7 @@ func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 	switch {
 	case numPackets > 1:
 		for _, p := range packets {
-			if bytes.Compare(p[:util.PacketStart], key) == 0 {
+			if bytes.Compare(p[:packetStart], key) == 0 {
 				return p, nil
 			}
 		}
