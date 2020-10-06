@@ -35,7 +35,6 @@ func startEgtsServer(listen string, options *util.Options, channels []chan []byt
 		return
 	}
 	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}))
-	sessionID := uint64(0)
 	logrus.Printf("Start EGTS server")
 	for {
 		c, err := l.Accept()
@@ -43,14 +42,13 @@ func startEgtsServer(listen string, options *util.Options, channels []chan []byt
 			logrus.Errorf("error while accepting: %s", err)
 		}
 		logrus.Printf("accepted connection (%s <-> %s)", c.RemoteAddr(), c.LocalAddr())
-		go initEgtsServer(c, pool, options, channels, systems, confChan, sessionID)
-		sessionID++
+		go initEgtsServer(c, pool, options, channels, systems, confChan)
 	}
 }
 
 func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
-	confChan chan *db.ConfMsg, sessionID uint64) {
-	s, err := newEgtsServer(c, pool, options, channels, systems, confChan, sessionID)
+	confChan chan *db.ConfMsg) {
+	s, err := newEgtsServer(c, pool, options, channels, systems, confChan)
 	if err != nil {
 		logrus.Errorf("error during initialization new egts server: %s", err)
 		return
@@ -65,17 +63,16 @@ func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 }
 
 func newEgtsServer(conn net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
-	confChan chan *db.ConfMsg, sessionID uint64) (*egtsServer, error) {
+	confChan chan *db.ConfMsg) (*egtsServer, error) {
 	exitChan := make(chan struct{})
 	return &egtsServer{
-		conn:      conn,
-		sessionID: sessionID,
-		logger:    logrus.WithField("type", "egts_server"),
-		pool:      pool,
-		exitChan:  exitChan,
-		Options:   options,
-		channels:  channels,
-		name:      monitoring.TerminalName,
+		conn:     conn,
+		logger:   logrus.WithField("type", "egts_server"),
+		pool:     pool,
+		exitChan: exitChan,
+		Options:  options,
+		channels: channels,
+		name:     monitoring.TerminalName,
 	}, nil
 }
 
