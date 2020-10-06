@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/binary"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -64,6 +65,36 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 	return req, nil
 }
 
+// RemoveExpiredEgts removes expired packet from DB
+func RemoveExpiredEgts(pool *Pool, logger *logrus.Entry) (err error) {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	max := util.Milliseconds() - util.Millisec3Days
+	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsSource, 0, max)
+	if err != nil {
+		return
+	}
+	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
+	return
+}
+
+// GetSessionIDEgts returns new ID of sessions between tcpmirror and data source
+func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	key := "session:" + util.Instance
+	id, err := redis.Uint64(c.Do("GET", key))
+	if err != nil {
+		if err == redis.ErrNil {
+			id = 0
+		} else {
+			return 0, err
+		}
+	}
+	_, err = c.Do("SET", key, id+1)
+	return id, err
+}
+
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
@@ -86,9 +117,18 @@ func write2EGTS(c redis.Conn, time int64, key []byte) error {
 	return err
 }
 
-func write2Egts4Egts(c redis.Conn, OID int, time int64, sdata []byte, logger *logrus.Entry) error {
-	logger.Tracef("write2Egts4Egts OID: %v, time: %v; sdata: %v", OID, time, sdata)
-	res, err := c.Do("ZADD", OID, time, sdata)
-	logger.Tracef("write2Egts4Egts OID: %v, time: %v; sdata: %v; res: %v; err: %v", OID, time, sdata, res, err)
+func write2Egts4Egts(c redis.Conn, time int64, sdata []byte, logger *logrus.Entry) error {
+	logger.Tracef("write2Egts4Egts, time: %v; sdata: %v", time, sdata)
+	res, err := c.Do("ZADD", util.EgtsSource, time, sdata)
+	logger.Tracef("write2Egts4Egts time: %v; sdata: %v; res: %v; err: %v", time, sdata, res, err)
 	return err
+}
+
+func findPacketEgts(conn redis.Conn, val []byte, packetStart int) ([][]byte, error) {
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsSource, time, time))
+	if err != nil {
+		return nil, err
+	}
+	return packets, nil
 }

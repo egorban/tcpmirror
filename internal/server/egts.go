@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -36,24 +37,28 @@ func startEgtsServer(listen string, options *util.Options, channels []chan []byt
 	}
 	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}))
 	logrus.Printf("Start EGTS server")
+	var muSession sync.Mutex
 	for {
 		c, err := l.Accept()
 		if err != nil {
 			logrus.Errorf("error while accepting: %s", err)
 		}
 		logrus.Printf("accepted connection (%s <-> %s)", c.RemoteAddr(), c.LocalAddr())
-		go initEgtsServer(c, pool, options, channels, systems, confChan)
+		go initEgtsServer(c, pool, options, channels, systems, confChan, &muSession)
 	}
 }
 
 func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
-	confChan chan *db.ConfMsg) {
+	confChan chan *db.ConfMsg, muSession *sync.Mutex) {
 	s, err := newEgtsServer(c, pool, options, channels, systems, confChan)
 	if err != nil {
 		logrus.Errorf("error during initialization new egts server: %s", err)
 		return
 	}
-	if err = s.setSessionID(); err != nil {
+	muSession.Lock()
+	err = s.setSessionID()
+	muSession.Unlock()
+	if err != nil {
 		err = fmt.Errorf("setSessionID error: %s", err)
 		return
 	}
@@ -140,7 +145,7 @@ func (s *egtsServer) processPacket(packet egts.Packet) (err error) {
 			Record:    rec.RecBin,
 		}
 		sdata := util.Serialize4Egts(data)
-		err = db.Write2DB4Egts(s.pool, int(data.OID), sdata, s.logger)
+		err = db.Write2DB4Egts(s.pool, sdata, s.logger)
 		if err != nil {
 			return
 		}
@@ -226,7 +231,7 @@ func (s *egtsServer) removeExpired() {
 		case <-s.exitChan:
 			return
 		case <-tickerEx.C:
-			err := db.RemoveExpired(s.pool, 1, s.logger)
+			err := db.RemoveExpiredEgts(s.pool, s.logger)
 			if err != nil {
 				s.logger.Errorf("can't remove expired data egts: %s", err)
 			}
