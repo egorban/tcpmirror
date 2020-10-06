@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net"
 	"time"
 
@@ -52,6 +53,10 @@ func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 	s, err := newEgtsServer(c, pool, options, channels, systems, confChan, sessionID)
 	if err != nil {
 		logrus.Errorf("error during initialization new egts server: %s", err)
+		return
+	}
+	if err = s.setSessionID(); err != nil {
+		err = fmt.Errorf("setSessionID error: %s", err)
 		return
 	}
 	s.logger.Tracef("newEgtsServer: %+v", s)
@@ -230,4 +235,9 @@ func (s *egtsServer) removeExpired() {
 			}
 		}
 	}
+}
+
+func (s *egtsServer) setSessionID() (err error) {
+	s.sessionID, err = db.NewSessionIDEgts(s.pool, s.logger)
+	return
 }

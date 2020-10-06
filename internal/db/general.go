@@ -89,6 +89,23 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
+// NewSessionIDEgts returns new ID of sessions between tcpmirror and data source
+func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	key := "session:" + util.Instance
+	id, err := redis.Uint64(c.Do("GET", key))
+	if err != nil {
+		if err == redis.ErrNil {
+			id = 0
+		} else {
+			return 0, err
+		}
+	}
+	_, err = c.Do("SET", key, id+1)
+	return id, err
+}
+
 // IsOldData checks if message is old and should not be sending again
 func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
