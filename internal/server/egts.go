@@ -77,7 +77,7 @@ func newEgtsServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		exitChan: exitChan,
 		Options:  options,
 		channels: channels,
-		name:     monitoring.TerminalName,
+		name:     monitoring.SourceName,
 	}, nil
 }
 
@@ -102,14 +102,16 @@ func (s *egtsServer) serverLoop() {
 		}
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
-		var numPacks uint
-		buf, numPacks = s.processBuf(buf)
+		var numPacks, numRecs uint
+		buf, numPacks, numRecs = s.processBuf(buf)
+		s.logger.Debugf("received %d pkts, %d recs", numPacks, numRecs)
 		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, numPacks)
+		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdRecs, numRecs)
 	}
 }
 
-func (s *egtsServer) processBuf(buf []byte) ([]byte, uint) {
-	countPack := uint(0)
+func (s *egtsServer) processBuf(buf []byte) ([]byte, uint, uint) {
+	var numPacks, numRecs uint
 	for len(buf) > 0 {
 		var packet egts.Packet
 		rest, err := packet.Parse(buf)
@@ -117,24 +119,25 @@ func (s *egtsServer) processBuf(buf []byte) ([]byte, uint) {
 		if err != nil {
 			if len(rest) > defaultBufferSize {
 				s.logger.Warningf("drop buffer: %s", err)
-				return []byte(nil), countPack
+				return []byte(nil), numPacks, numRecs
 			}
-			return rest, countPack
+			return rest, numPacks, numRecs
 		}
 		buf = rest
 		if packet.Type == egts.EgtsPtAppdata {
-			err = s.processPacket(packet)
+			countRecs, err := s.processPacket(packet)
 			if err != nil {
 				s.logger.Warningf("can't process message from client: %s", err)
-				return []byte(nil), countPack
+				return []byte(nil), numPacks, numRecs
 			}
-			countPack++
+			numRecs = numRecs + countRecs
+			numPacks++
 		}
 	}
-	return buf, countPack
+	return buf, numPacks, numRecs
 }
 
-func (s *egtsServer) processPacket(packet egts.Packet) (err error) {
+func (s *egtsServer) processPacket(packet egts.Packet) (countRecs uint, err error) {
 	var recNums []uint16
 	for _, rec := range packet.Records {
 		data := util.DataEgts{
@@ -145,14 +148,17 @@ func (s *egtsServer) processPacket(packet egts.Packet) (err error) {
 			Record:    rec.RecBin,
 		}
 		sdata := util.Serialize4Egts(data)
+		s.logger.Debugf("data for serialized: %+v", data)
 		err = db.Write2DB4Egts(s.pool, sdata, s.logger)
 		if err != nil {
 			return
 		}
 		s.send2Channels(sdata)
 		recNums = append(recNums, rec.RecNum)
+		countRecs++
 	}
 	reply, ansPID, ansRID, err := makeEgtsReply(packet.ID, recNums, s.ansPID, s.ansRID)
+	s.logger.Debugf("send confirmded %d, %d", s.ansPID, s.ansRID)
 	s.ansPID = ansPID
 	s.ansRID = ansRID
 	err = s.send2terminal(reply)

@@ -6,12 +6,14 @@ import (
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
+	"github.com/labstack/gommon/log"
 	"github.com/sirupsen/logrus"
 )
 
 // WriteEgtsID maps EgtsID to NdtpID or received EgtsID to sent EgtsID
 func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, ID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
+	log.Printf("WriteEgtsID key %v, ID %v", key, ID)
 	_, err := conn.Do("SET", key, ID, "ex", KeyEx)
 	return err
 }
