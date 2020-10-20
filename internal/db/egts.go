@@ -81,7 +81,7 @@ func RemoveExpiredEgts(pool *Pool, logger *logrus.Entry) (err error) {
 	return
 }
 
-// GetSessionIDEgts returns new ID of sessions between tcpmirror and data source
+// NewSessionIDEgts returns new ID of sessions between tcpmirror and data source
 func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
