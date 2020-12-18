@@ -58,13 +58,13 @@ func getSourceConns() (n int, err error) {
 		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
 	})
 	if err != nil {
-		logrus.Println("error get source connections:", err)
+		logrus.Errorln("error get source connections:", err)
 	}
 	tabsTcp6, err := netstat.TCP6Socks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
 	})
 	if err != nil {
-		logrus.Println("error get source connections:", err)
+		logrus.Errorln("error get source connections:", err)
 	}
 	n = len(tabsTcp) + len(tabsTcp6)
 	return
@@ -77,7 +77,7 @@ func getSystemConns(sys sysInfo) (n int, err error) {
 			s.RemoteAddr.Port == sys.port
 	})
 	if err != nil {
-		logrus.Println("error get source connections:", err)
+		logrus.Errorln("error get source connections:", err)
 	}
 	tabsTcp6, err := netstat.TCP6Socks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Established &&
@@ -85,7 +85,7 @@ func getSystemConns(sys sysInfo) (n int, err error) {
 			s.RemoteAddr.Port == sys.port
 	})
 	if err != nil {
-		logrus.Println("error get source connections:", err)
+		logrus.Errorln("error get source connections:", err)
 	}
 	if tabsTcp != nil && tabsTcp6 != nil {
 		tabs := append(tabsTcp, tabsTcp6...)

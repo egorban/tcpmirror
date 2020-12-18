@@ -39,7 +39,7 @@ func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error)
 	}
 	monClient, err = influx.NewClient(monAddress)
 	if err != nil {
-		logrus.Println("error while connecting to influx", err)
+		logrus.Errorln("error while connecting to influx", err)
 		return
 	}
 	host = getHost()
@@ -49,14 +49,14 @@ func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error)
 }
 func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 	if args.Systems == nil {
-		logrus.Println("error get systems, start without monitoring system connections")
+		logrus.Errorln("error get systems, start without monitoring system connections")
 		return
 	}
 	systems = make([]sysInfo, 0)
 	for _, sys := range args.Systems {
 		ipAddress, port, err := splitAddrPort(sys.Address)
 		if err != nil {
-			logrus.Println("error get systems, start without monitoring system connections", err)
+			logrus.Errorln("error get systems, start without monitoring system connections", err)
 			return
 		}
 		if ipAddress == "localhost" {
@@ -72,14 +72,14 @@ func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 
 	listenAddress := args.Listen
 	if listenAddress == "" {
-		logrus.Println("error get listen address, start without monitoring redis")
+		logrus.Errorln("error get listen address, start without monitoring redis")
 		return
 	}
 	listenPort = getListenPort(listenAddress)
 
 	pidInstance = os.Getpid()
 	if pidInstance == 0 {
-		logrus.Println("error get pid, start without monitoring system connections")
+		logrus.Errorln("error get pid, start without monitoring system connections")
 		return
 	}
 	go monSystemConns(monClient)

@@ -182,7 +182,7 @@ OLDLOOP:
 				if countPack > numPcktsToSend-1 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.send(buf); err != nil {
-						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+						c.logger.Warningf("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
