@@ -58,16 +58,19 @@ func (c *NdtpMaster) start() {
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisConn)
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
 		c.reconnect()
 	} else {
 		c.conn = conn
 		c.open = true
 		if err = c.authorization(); err != nil {
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg)
 			c.logger.Errorf("error authorization: %s", err)
 		}
 	}
 	if c.serverClosed() {
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
 		return
 	}
 	go c.old()
@@ -119,6 +122,7 @@ func (c *NdtpMaster) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
@@ -368,6 +372,7 @@ func (c *NdtpMaster) connStatus() {
 	}
 	c.open = false
 	c.auth = false
+	monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
 	c.reconnect()
 }
 
@@ -376,6 +381,7 @@ func (c *NdtpMaster) reconnect() {
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
 				c.logger.Println("close because server is closed")
 				return
 			}
@@ -392,6 +398,7 @@ func (c *NdtpMaster) reconnect() {
 					go c.chanReconStatus()
 					return
 				}
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg)
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}
 		}
