@@ -13,6 +13,7 @@ func (c *Egts) clientLoop4Ndtp() {
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcTerminalMsg, monitoring.TypeEgts)
 		c.logger.Errorf("can't getID: %v", err)
 	}
 	var buf []byte
@@ -61,18 +62,21 @@ func (c *Egts) processMessage4Ndtp(dbConn db.Conn, message []byte, buf []byte) [
 	c.logger.Tracef("data: %+v", data)
 	messageID, recID, err := c.ids(dbConn)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcTerminalMsg, monitoring.TypeEgts)
 		c.logger.Errorf("can't get ids: %s", err)
 		return buf
 	}
 	packet, err := util.Ndtp2Egts(data.Packet, data.TerminalID, messageID, recID)
 	util.PrintPacket(c.logger, "formed packet: ", packet)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcTerminalMsg, monitoring.TypeEgts)
 		c.logger.Errorf("can't form packet: %s", err)
 		return buf
 	}
 	buf = append(buf, packet...)
 	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcTerminalMsg, monitoring.TypeEgts)
 		c.logger.Errorf("error WriteEgtsID: %s", err)
 	}
 	return buf
@@ -100,6 +104,7 @@ OLDLOOP:
 			c.logger.Debugf("start checking old data")
 			messages, err := db.OldPacketsEGTS(dbConn, c.id, util.PacketStart)
 			if err != nil {
+				monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisGetOld, monitoring.TypeEgts)
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}

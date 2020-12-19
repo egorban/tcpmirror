@@ -6,6 +6,10 @@ import (
 )
 
 const (
+	TypeNdtp     = "ndtp"
+	TypeEgts     = "egts"
+	TypeTerminal = "terminal"
+
 	TerminalConn       = "terminalConn"
 	TerminalFirstMsg   = "terminalFirstMsg"
 	TerminalDisconnect = "terminalDisconnect"
@@ -24,9 +28,16 @@ const (
 	NdtpVisDropBuf            = "ndtpVisDropBuf"
 	NdtpVisMasterChannelFull  = "ndtpVisMasterChannelFull"
 	NdtpVisGetOld             = "ndtpVisGetOld"
+
+	EgtsVisConn            = "EgtsVisConn"
+	EgtsVisSend            = "EgtsVisSend"
+	EgtsVisProcMsgFrom     = "EgtsVisProcMsgFrom"
+	EgtsVisDisconnect      = "EgtsVisDisconnect"
+	EgtsVisProcTerminalMsg = "EgtsVisProcTerminalMsg"
+	EgtsVisGetOld          = "EgtsVisGetOld"
 )
 
-func SendMetricInfo(options *util.Options, metricName string) {
+func SendMetricInfo(options *util.Options, metricName string, typeSystem string) {
 	if !options.MonEnable {
 		return
 	}
@@ -34,7 +45,7 @@ func SendMetricInfo(options *util.Options, metricName string) {
 	tags := influx.Tags{
 		"host":     host,
 		"instance": util.Instance,
-		//"type":     typeMetric,
+		"system":   typeSystem,
 	}
 
 	values := influx.Values{

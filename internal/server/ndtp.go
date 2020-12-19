@@ -37,7 +37,7 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}))
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
-		monitoring.SendMetricInfo(options, monitoring.TerminalConn)
+		monitoring.SendMetricInfo(options, monitoring.TerminalConn, monitoring.TypeTerminal)
 		logrus.Fatalf("error while listening: %s", err)
 		return
 	}
@@ -46,7 +46,7 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			monitoring.SendMetricInfo(options, monitoring.TerminalConn)
+			monitoring.SendMetricInfo(options, monitoring.TerminalConn, monitoring.TypeTerminal)
 			logrus.Errorf("error while accepting: %s", err)
 		}
 		logrus.Printf("accepted connection (%s <-> %s)", c.RemoteAddr(), c.LocalAddr())
@@ -64,7 +64,7 @@ func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 	s.logger.Tracef("newNdtpServer: %+v", s)
 	err = s.waitFirstMessage()
 	if err != nil {
-		monitoring.SendMetricInfo(options, monitoring.TerminalFirstMsg)
+		monitoring.SendMetricInfo(options, monitoring.TerminalFirstMsg, monitoring.TypeTerminal)
 		s.logger.Errorf("error getting new message: %s", err)
 		return
 	}
@@ -132,7 +132,7 @@ func (s *ndtpServer) serverLoop() {
 		//todo remove after testing
 		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
-			monitoring.SendMetricInfo(s.Options, monitoring.TerminalDisconnect)
+			monitoring.SendMetricInfo(s.Options, monitoring.TerminalDisconnect, monitoring.TypeTerminal)
 			s.logger.Info("close ndtpServer: ", err)
 			close(s.exitChan)
 			return
@@ -153,17 +153,17 @@ func (s *ndtpServer) processBuf(buf []byte) ([]byte, uint) {
 		s.logger.Tracef("len packet: %d, len buf: %d, service: %d", len(packet), len(rest), service)
 		if err != nil {
 			if len(rest) > defaultBufferSize {
-				monitoring.SendMetricInfo(s.Options, monitoring.TerminalDropBuf)
+				monitoring.SendMetricInfo(s.Options, monitoring.TerminalDropBuf, monitoring.TypeTerminal)
 				s.logger.Warningf("drop buffer: %s", err)
 				return []byte(nil), countPack
 			}
-			monitoring.SendMetricInfo(s.Options, monitoring.TerminalProcMsg)
+			monitoring.SendMetricInfo(s.Options, monitoring.TerminalProcMsg, monitoring.TypeTerminal)
 			return rest, countPack
 		}
 		buf = rest
 		err = s.processPacket(packet, service)
 		if err != nil {
-			monitoring.SendMetricInfo(s.Options, monitoring.TerminalProcMsg)
+			monitoring.SendMetricInfo(s.Options, monitoring.TerminalProcMsg, monitoring.TypeTerminal)
 			s.logger.Warningf("can't process message from client: %s", err)
 			return []byte(nil), countPack
 		}
@@ -260,13 +260,13 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	//todo remove after testing
 	util.PrintPacketForDebugging(s.logger, "parsed packet to client:", packet)
 	if err != nil {
-		monitoring.SendMetricInfo(s.Options, monitoring.TerminalSend)
+		monitoring.SendMetricInfo(s.Options, monitoring.TerminalSend, monitoring.TypeTerminal)
 		return
 	}
 	var n int
 	n, err = s.conn.Write(packet)
 	if err != nil {
-		monitoring.SendMetricInfo(s.Options, monitoring.TerminalSend)
+		monitoring.SendMetricInfo(s.Options, monitoring.TerminalSend, monitoring.TypeTerminal)
 	}
 	monitoring.SendMetric(s.Options, s.name, monitoring.SentBytes, n)
 	return
@@ -341,7 +341,7 @@ func (s *ndtpServer) removeExpired() {
 		case <-tickerEx.C:
 			err := db.RemoveExpired(s.pool, s.terminalID, s.logger)
 			if err != nil {
-				monitoring.SendMetricInfo(s.Options, monitoring.TerminalRemoveExp)
+				monitoring.SendMetricInfo(s.Options, monitoring.TerminalRemoveExp, monitoring.TypeTerminal)
 				s.logger.Errorf("can't remove expired data ndtp: %s", err)
 			}
 		}

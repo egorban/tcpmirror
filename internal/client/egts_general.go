@@ -62,6 +62,7 @@ func (c *Egts) start() {
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisConn, monitoring.TypeEgts)
 		c.logger.Errorf("error while connecting to EGTS server: %s", err)
 		c.reconnect()
 	} else {
@@ -90,6 +91,7 @@ func (c *Egts) send(buf []byte) (err error) {
 		}
 		n, err := c.conn.Write(buf)
 		if err != nil {
+			monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisSend, monitoring.TypeEgts)
 			c.conStatus()
 		} else {
 			monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
@@ -120,6 +122,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 	}
 	n, err := c.conn.Read(b[:])
 	if err != nil {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 		c.logger.Warningf("can't get reply from c server %s", err)
 		c.conStatus()
 		time.Sleep(time.Duration(TimeoutErrorReply) * time.Second)
@@ -138,6 +141,7 @@ func (c *Egts) handleReplyLoop(dbConn db.Conn, restBuf []byte) []byte {
 		var err error
 		restBuf, err = packetData.Parse(restBuf)
 		if err != nil {
+			monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 			c.logger.Errorf("error while parsing reply %v: %s", restBuf, err)
 			return restBuf
 
@@ -154,9 +158,11 @@ func (c *Egts) handleReplyLoop(dbConn db.Conn, restBuf []byte) []byte {
 func (c *Egts) handleReplies(dbConn db.Conn, packetData *egts.Packet) (err error) {
 	data, ok := packetData.Data.(*egts.Response)
 	if !ok {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 		return fmt.Errorf("expected reply packet but got: %v", packetData)
 	}
 	if data.ProcRes != 0 {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 		c.logger.Warningf("reply with not ok status: %d; %v", data.ProcRes, packetData)
 		return
 	}
@@ -171,13 +177,18 @@ func (c *Egts) handleReplies(dbConn db.Conn, packetData *egts.Packet) (err error
 func (c *Egts) handleReply(dbConn db.Conn, sub *egts.SubRecord) (err error) {
 	conf, ok := sub.Data.(*egts.Confirmation)
 	if sub.Type != egts.EgtsPtResponse || !ok {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 		c.logger.Warningf("expected response subrecord but got %v", sub)
 		return
 	}
 	if conf.RST != egts.Success {
+		monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
 		c.logger.Warningf("reply with not ok status: %v", conf)
 	} else {
 		err = c.handleSuccessReply(dbConn, conf.CRN)
+		if err != nil {
+			monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisProcMsgFrom, monitoring.TypeEgts)
+		}
 	}
 	return
 }
@@ -201,6 +212,7 @@ func (c *Egts) conStatus() {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
 	c.open = false
+	monitoring.SendMetricInfo(c.Options, monitoring.EgtsVisDisconnect, monitoring.TypeEgts)
 	c.reconnect()
 }
 

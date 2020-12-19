@@ -53,20 +53,20 @@ func (c *NdtpMaster) start() {
 	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
 	err := c.setNph()
 	if err != nil {
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisConn)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisConn, monitoring.TypeNdtp)
 		c.logger.Errorf("can't setNph: %v", err)
 	}
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisConn)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisConn, monitoring.TypeNdtp)
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
 		c.reconnect()
 	} else {
 		c.conn = conn
 		c.open = true
 		if err = c.authorization(); err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg, monitoring.TypeNdtp)
 			c.logger.Errorf("error authorization: %s", err)
 		}
 	}
@@ -122,7 +122,7 @@ func (c *NdtpMaster) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
-				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect, monitoring.TypeNdtp)
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
@@ -147,7 +147,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 	packet := data.Packet
 	service, err := ndtp.Service(data.Packet)
 	if err != nil {
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
 		c.logger.Errorf("can't get service: %s", err)
 		return
 	}
@@ -157,7 +157,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		}
 		nphID, err := c.getNphID()
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
 			c.logger.Errorf("can't get NPH ID: %v", err)
 			return
 		}
@@ -165,13 +165,13 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		newPacket := ndtp.Change(packet, changes)
 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
 		err = c.send2Server(newPacket)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend, monitoring.TypeNdtp)
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 		}
@@ -179,7 +179,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		c.logger.Tracef("send control packet to server: %v", packet)
 		err := c.send2Server(packet)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend, monitoring.TypeNdtp)
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 		}
@@ -209,7 +209,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	var b [defaultBufferSize]byte
 	n, err := c.conn.Read(b[:])
 	if err != nil {
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom, monitoring.TypeNdtp)
 		c.logger.Warningf("can't get data from server: %v", err)
 		c.connStatus()
 		time.Sleep(5 * time.Second)
@@ -222,7 +222,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
 		if len(buf) > defaultBufferSize {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDropBuf)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDropBuf, monitoring.TypeNdtp)
 			return []byte{}
 		}
 	}
@@ -239,13 +239,13 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 		packet, buf, service, packetType, _, err = ndtp.SimpleParse(buf)
 		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom, monitoring.TypeNdtp)
 			return buf, err
 		}
 		if service == 1 && packetType == 0 {
 			err = c.handleResult(packet)
 			if err != nil {
-				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom)
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcMsgFrom, monitoring.TypeNdtp)
 				c.logger.Warningf("can't handle result: %v; %v", err, packet)
 			}
 		} else if service == 0 && packetType == 0 {
@@ -289,7 +289,7 @@ func (c *NdtpMaster) old() {
 		if c.open {
 			select {
 			case <-c.exitChan:
-				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect, monitoring.TypeNdtp)
 				return
 			case <-ticker.C:
 				c.checkOld()
@@ -305,7 +305,7 @@ func (c *NdtpMaster) checkOld() {
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisGetOld)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisGetOld, monitoring.TypeNdtp)
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
 		c.resend(res)
@@ -320,7 +320,7 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 		packet := data.Packet
 		nphID, err := c.getNphID()
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
 			c.logger.Errorf("can't get NPH ID: %v", err)
 		}
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
@@ -328,14 +328,14 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {
-			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend)
+			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisSend, monitoring.TypeNdtp)
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 			return
@@ -380,7 +380,7 @@ func (c *NdtpMaster) connStatus() {
 	if !c.open || c.reconnecting {
 		return
 	}
-	monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect)
+	monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisDisconnect, monitoring.TypeNdtp)
 	c.reconnecting = true
 	if err := c.conn.Close(); err != nil {
 		c.logger.Debugf("can't close servConn: %s", err)
@@ -411,7 +411,7 @@ func (c *NdtpMaster) reconnect() {
 					go c.chanReconStatus()
 					return
 				}
-				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg)
+				monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisFirstMsg, monitoring.TypeNdtp)
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}
 		}
@@ -422,7 +422,7 @@ func (c *NdtpMaster) reconnect() {
 func (c *NdtpMaster) serverClosed() bool {
 	select {
 	case <-c.exitChan:
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisTerminalDisconnect)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisTerminalDisconnect, monitoring.TypeNdtp)
 		return true
 	default:
 		return false
@@ -434,7 +434,7 @@ func (c *NdtpMaster) send2Channel(channel chan []byte, data []byte) {
 	case channel <- data:
 		return
 	default:
-		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisMasterChannelFull)
+		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisMasterChannelFull, monitoring.TypeNdtp)
 		c.logger.Warningln("channel is full")
 	}
 }
