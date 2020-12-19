@@ -14,9 +14,16 @@ const (
 	TerminalSend       = "terminalSend"
 	TerminalRemoveExp  = "terminalRemoveExp"
 
-	NdtpVisConn       = "NdtpVisConn"
-	NdtpVisFirstMsg   = "NdtpVisFirstMsg"
-	NdtpVisDisconnect = "NdtpVisDisconnect"
+	NdtpVisConn               = "NdtpVisConn"
+	NdtpVisFirstMsg           = "NdtpVisFirstMsg"
+	NdtpVisDisconnect         = "NdtpVisDisconnect"
+	NdtpVisTerminalDisconnect = "NdtpVisTerminalDisconnect"
+	NdtpVisProcTerminalMsg    = "NdtpVisProcTerminalMsg"
+	NdtpVisProcMsgFrom        = "ndtpVisProcMsgFrom"
+	NdtpVisSend               = "ndtpVisSend"
+	NdtpVisDropBuf            = "ndtpVisDropBuf"
+	NdtpVisMasterChannelFull  = "ndtpVisMasterChannelFull"
+	NdtpVisGetOld             = "ndtpVisGetOld"
 )
 
 func SendMetricInfo(options *util.Options, metricName string) {
