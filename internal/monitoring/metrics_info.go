@@ -10,6 +10,8 @@ const (
 	TypeEgts     = "egts"
 	TypeTerminal = "terminal"
 
+	GetRedisPool = "getRedisPool"
+
 	TerminalConn       = "terminalConn"
 	TerminalFirstMsg   = "terminalFirstMsg"
 	TerminalDisconnect = "terminalDisconnect"

@@ -184,6 +184,7 @@ func (s *ndtpServer) processPacket(packet []byte, service uint16) (err error) {
 	if service != ndtp.NphSrvNavdata {
 		s.send2Channel(s.masterIn, sdata)
 	} else {
+		monitoring.SendMetricInfo(s.Options, monitoring.GetRedisPool, monitoring.TypeTerminal)
 		err = db.Write2DB(s.pool, s.terminalID, sdata, s.logger)
 		if err != nil {
 			return
@@ -240,6 +241,7 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 	ip := ip(s.conn)
 	packetData.ChangeAddress(ip)
 	util.PrintPacket(s.logger, "changed first packet: ", packetData.Packet)
+	monitoring.SendMetricInfo(s.Options, monitoring.GetRedisPool, monitoring.TypeTerminal)
 	err = db.WriteConnDB(s.pool, s.terminalID, s.logger, packetData.Packet)
 	if err != nil {
 		err = fmt.Errorf("WriteConnDB error: %s", err)
@@ -339,6 +341,7 @@ func (s *ndtpServer) removeExpired() {
 		case <-s.exitChan:
 			return
 		case <-tickerEx.C:
+			monitoring.SendMetricInfo(s.Options, monitoring.GetRedisPool, monitoring.TypeTerminal)
 			err := db.RemoveExpired(s.pool, s.terminalID, s.logger)
 			if err != nil {
 				monitoring.SendMetricInfo(s.Options, monitoring.TerminalRemoveExp, monitoring.TypeTerminal)
@@ -349,6 +352,7 @@ func (s *ndtpServer) removeExpired() {
 }
 
 func (s *ndtpServer) setSessionID() (err error) {
+	monitoring.SendMetricInfo(s.Options, monitoring.GetRedisPool, monitoring.TypeTerminal)
 	s.sessionID, err = db.NewSessionID(s.pool, s.terminalID, s.logger)
 	return
 }
