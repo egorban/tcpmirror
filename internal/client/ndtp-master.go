@@ -135,7 +135,7 @@ func (c *NdtpMaster) clientLoop() {
 }
 
 func (c *NdtpMaster) sendFirstMessage() error {
-	monitoring.SendMetricInfo(s.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	firstMessage, err := db.ReadConnDB(c.pool, c.terminalID, c.logger)
 	if err != nil {
 		return err
