@@ -97,6 +97,8 @@ func MonPoolDB(monClient *influx.Client, pool *redis.Pool) {
 	for {
 		time.Sleep(10 * time.Second)
 		st := pool.Stats()
+		logrus.Infoln("pool active", st.ActiveCount)
+		logrus.Infoln("pool idle", st.IdleCount)
 		values := influx.Values{
 			"active": st.ActiveCount,
 			"idle":   st.IdleCount,
