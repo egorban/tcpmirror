@@ -6,6 +6,7 @@ import (
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
+	"github.com/sirupsen/logrus"
 )
 
 // Pool defines pool of connections to DB
@@ -29,6 +30,7 @@ func newPool(addr string, options *util.Options) *Pool {
 		MaxActive:   0,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
+			logrus.Infoln("redisConn pool")
 			monitoring.SendMetricInfo(options, monitoring.RedisConnPool, monitoring.TypeRedis)
 			return redis.Dial("tcp", addr)
 		},

@@ -28,6 +28,7 @@ func connect(dbAddress string, options *util.Options) redis.Conn {
 	var cR redis.Conn
 	for {
 		var err error
+		logrus.Infoln("redisConn")
 		monitoring.SendMetricInfo(options, monitoring.RedisConn, monitoring.TypeRedis)
 		cR, err = redis.Dial("tcp", string(dbAddress))
 		if err != nil {
