@@ -6,6 +6,7 @@ import (
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/egorban/influx/pkg/influx"
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 )
 
@@ -89,4 +90,18 @@ func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 		return
 	}
 	go monSystemConns(monClient)
+}
+
+func MonPoolDB(monClient *influx.Client, pool *redis.Pool) {
+	logrus.Println("start monitoring pool")
+	for {
+		time.Sleep(10 * time.Second)
+		st := pool.Stats()
+		values := influx.Values{
+			"active": st.ActiveCount,
+			"idle":   st.IdleCount,
+		}
+
+		monClient.WritePoint(influx.NewPoint("info", influx.Tags{}, values))
+	}
 }
