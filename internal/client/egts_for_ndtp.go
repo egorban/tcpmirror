@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Egts) clientLoop4Ndtp() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old4Ndtp() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
 OLDLOOP:

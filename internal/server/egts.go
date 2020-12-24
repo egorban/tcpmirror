@@ -28,7 +28,7 @@ type egtsServer struct {
 }
 
 func startEgtsServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
-	pool := db.NewPool(options.DB)
+	pool := db.NewPool(options.DB, options)
 	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}))
 	l, err := net.Listen("tcp", listen)
 	if err != nil {

@@ -27,9 +27,9 @@ type ConfMsg struct {
 }
 
 // InitDeleteManager initializes delete manager
-func InitDeleteManager(db string, systemIds []byte, serverProtocol string) *DeleteManager {
+func InitDeleteManager(db string, systemIds []byte, serverProtocol string, options *util.Options) *DeleteManager {
 	Manager := new(DeleteManager)
-	Manager.dbConn = Connect(db)
+	Manager.dbConn = Connect(db, options)
 	Manager.Chan = make(chan *ConfMsg, DeleteChanSize)
 	Manager.logger = logrus.WithFields(logrus.Fields{"type": "delete_manager"})
 	Manager.logger.Tracef("deleteManager chan: %v", Manager.Chan)

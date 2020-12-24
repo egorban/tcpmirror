@@ -11,7 +11,7 @@ import (
 )
 
 func (c *Egts) clientLoop4Egts() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
 	if err != nil {
@@ -147,7 +147,7 @@ func (c *Egts) formPacketEgts(recordsBin [][]byte, buf []byte) ([]byte, error) {
 }
 
 func (c *Egts) old4Egts() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
 OLDLOOP:

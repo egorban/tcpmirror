@@ -101,7 +101,7 @@ func (c *Egts) send(buf []byte) (err error) {
 }
 
 func (c *Egts) replyHandler() {
-	dbConn := db.Connect(c.DB)
+	dbConn := db.Connect(c.DB, c.Options)
 	var buf []byte
 	for {
 		if c.open {

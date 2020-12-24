@@ -140,7 +140,7 @@ func (c *Ndtp) clientLoop() {
 }
 
 func (c *Ndtp) sendFirstMessage() error {
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	firstMessage, err := db.ReadConnDB(c.pool, c.terminalID, c.logger)
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (c *Ndtp) sendFirstMessage() error {
 }
 
 func (c *Ndtp) handleMessage(message []byte) {
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 		return
 	}
@@ -164,7 +164,7 @@ func (c *Ndtp) handleMessage(message []byte) {
 	}
 	changes := map[string]int{ndtp.NphReqID: int(nphID)}
 	newPacket := ndtp.Change(packet, changes)
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 	if err != nil {
 		monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
@@ -262,7 +262,7 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 	res := packetData.Nph.Data.(uint32)
 	if res == ndtp.NphResultOk {
-		monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+		//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger, c.confChan)
 	} else {
 		c.logger.Warningf("got nph result error: %d", res)
@@ -291,7 +291,7 @@ func (c *Ndtp) old() {
 
 func (c *Ndtp) checkOld() {
 	c.logger.Traceln("start checking old")
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
@@ -317,7 +317,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "resend message: ", newPacket)
-		monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+		//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			monitoring.SendMetricInfo(c.Options, monitoring.NdtpVisProcTerminalMsg, monitoring.TypeNdtp)
@@ -371,7 +371,7 @@ func (c *Ndtp) getNphID() (uint32, error) {
 	nphID := c.nphID
 	c.nphID++
 	c.logger.Tracef("getNphID: %v", c.nphID)
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	err := db.SetNph(c.pool, c.id, c.terminalID, c.nphID, c.logger)
 	c.mu.Unlock()
 	return nphID, err
@@ -433,7 +433,7 @@ func (c *Ndtp) serverClosed() bool {
 }
 
 func (c *Ndtp) setNph() error {
-	monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
+	//monitoring.SendMetricInfo(c.Options, monitoring.GetRedisPool, monitoring.TypeNdtp)
 	nph, err := db.GetNph(c.pool, c.id, c.terminalID, c.logger)
 	if err == nil {
 		c.nphID = nph

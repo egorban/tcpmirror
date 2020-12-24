@@ -9,8 +9,12 @@ const (
 	TypeNdtp     = "ndtp"
 	TypeEgts     = "egts"
 	TypeTerminal = "terminal"
+	TypeRedis    = "redis"
 
-	GetRedisPool = "getRedisPool"
+	//GetRedisPool = "getRedisPool"
+
+	RedisConnPool = "redisConnPool"
+	RedisConn     = "redisConn"
 
 	TerminalConn       = "terminalConn"
 	TerminalFirstMsg   = "terminalFirstMsg"
