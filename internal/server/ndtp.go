@@ -34,7 +34,7 @@ type ndtpServer struct {
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB, options)
-	go monitoring.MonPoolDB(options.MonСlient, pool)
+	go monitoring.MonPoolDB(options.MonСlient, pool.Pool)
 	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}))
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
